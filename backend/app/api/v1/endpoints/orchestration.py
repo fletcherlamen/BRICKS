@@ -1,5 +1,5 @@
 """
-Orchestration API Endpoints
+UBIC v1.5 Orchestration API Endpoints
 """
 
 from typing import Dict, List, Optional, Any
@@ -11,6 +11,7 @@ from datetime import datetime
 
 from app.services.ai_orchestrator import AIOrchestrator
 from app.core.exceptions import AIOrchestrationError
+from app.models.ubic import UBICResponse, Status
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -41,7 +42,7 @@ async def get_orchestrator() -> AIOrchestrator:
     return None  # Will be injected from app state
 
 
-@router.post("/execute", response_model=OrchestrationResponse)
+@router.post("/execute", response_model=UBICResponse)
 async def execute_orchestration(
     request: OrchestrationRequest,
     orchestrator: AIOrchestrator = Depends(get_orchestrator)
@@ -66,25 +67,33 @@ async def execute_orchestration(
             session_id=session_id
         )
         
-        return OrchestrationResponse(
-            session_id=session_id,
-            task_type=request.task_type,
-            status="completed",
-            results=results,
-            timestamp=datetime.now().isoformat()
+        return UBICResponse(
+            status=Status.SUCCESS,
+            message="Orchestration completed successfully",
+            details={
+                "session_id": session_id,
+                "task_type": request.task_type,
+                "status": "completed",
+                "results": results,
+                "timestamp": datetime.now().isoformat()
+            }
         )
         
     except AIOrchestrationError as e:
         logger.error("Orchestration failed", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e)
+        return UBICResponse(
+            status=Status.ERROR,
+            error_code="ORCHESTRATION_FAILED",
+            message="Orchestration failed",
+            details={"error": str(e)}
         )
     except Exception as e:
         logger.error("Unexpected orchestration error", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+        return UBICResponse(
+            status=Status.ERROR,
+            error_code="INTERNAL_ERROR",
+            message="Internal server error",
+            details={"error": str(e)}
         )
 
 

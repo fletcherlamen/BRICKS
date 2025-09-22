@@ -6,6 +6,9 @@ This version runs without database dependencies for initial testing
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from app.api.v1.api import api_router
+from app.models.ubic import UBICResponse, Status
+from datetime import datetime
 
 # Configure structured logging
 structlog.configure(
@@ -30,8 +33,8 @@ logger = structlog.get_logger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="I PROACTIVE BRICK Orchestration Intelligence",
-    description="AI-Powered Strategic Business Development Platform",
+    title="I PROACTIVE BRICK Orchestration Intelligence (UBIC v1.5)",
+    description="AI-Powered Strategic Business Development Platform - Universal Brick Interface Contract v1.5",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -46,36 +49,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include API router
+app.include_router(api_router, prefix="/api/v1")
+
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {
-        "message": "I PROACTIVE BRICK Orchestration Intelligence API",
+        "message": "I PROACTIVE BRICK Orchestration Intelligence API (UBIC v1.5)",
         "status": "operational",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "ubic_version": "1.5"
     }
 
-@app.get("/health")
+@app.get("/health", response_model=UBICResponse)
 async def health_check():
-    """Health check endpoint"""
+    """UBIC v1.5 Root Health Endpoint"""
     logger.info("Health check requested")
-    return {
-        "status": "healthy",
-        "service": "I PROACTIVE BRICK Orchestration Intelligence",
-        "timestamp": "2025-09-22T02:55:00Z"
-    }
+    return UBICResponse(
+        status=Status.SUCCESS,
+        message="Service is healthy",
+        details={
+            "service": "I PROACTIVE BRICK Orchestration Intelligence",
+            "ubic_version": "1.5",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
 
 @app.get("/api/v1/status")
 async def api_status():
     """API status endpoint"""
     return {
         "api_version": "v1",
+        "ubic_version": "1.5",
         "status": "operational",
-        "endpoints": {
-            "orchestration": "/api/v1/orchestration",
-            "bricks": "/api/v1/bricks",
-            "memory": "/api/v1/memory",
-            "health": "/health"
+        "required_endpoints": {
+            "health": "GET /api/v1/health/",
+            "capabilities": "GET /api/v1/health/capabilities",
+            "state": "GET /api/v1/health/state",
+            "dependencies": "GET /api/v1/health/dependencies",
+            "message": "POST /api/v1/message-bus/message",
+            "send": "POST /api/v1/message-bus/send",
+            "reload_config": "POST /api/v1/health/reload-config",
+            "shutdown": "POST /api/v1/health/shutdown",
+            "emergency_stop": "POST /api/v1/health/emergency-stop"
         }
     }
 

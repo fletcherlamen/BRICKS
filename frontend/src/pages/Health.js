@@ -24,9 +24,14 @@ const Health = () => {
 
   const fetchHealthData = async () => {
     try {
-      // Mock health data - in production this would fetch from API
+      // Fetch UBIC v1.5 health data from API
+      const response = await fetch('http://localhost:8000/api/v1/health/');
+      const ubicResponse = await response.json();
+      
+      // Transform UBIC response to expected format
+      const healthDetails = ubicResponse.details;
       const mockHealthData = {
-        overall_status: 'healthy',
+        overall_status: healthDetails.status || 'healthy',
         services: {
           database: {
             status: 'healthy',

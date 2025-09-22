@@ -7,6 +7,7 @@ import {
   CubeIcon,
   CircleStackIcon,
   HeartIcon,
+  WrenchScrewdriverIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'BRICKS', href: '/bricks', icon: CubeIcon },
   { name: 'Memory', href: '/memory', icon: CircleStackIcon },
   { name: 'Health', href: '/health', icon: HeartIcon },
+  { name: 'UBIC Health', href: '/ubic-health', icon: WrenchScrewdriverIcon },
 ];
 
 const Layout = ({ children }) => {
