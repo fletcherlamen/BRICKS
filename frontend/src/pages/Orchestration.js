@@ -1,559 +1,393 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Play, 
-  Pause, 
-  Square, 
-  Brain, 
-  Network, 
-  Zap,
-  Settings,
-  Plus,
-  Activity,
-  Target
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  PlayIcon,
+  StopIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  CpuChipIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 
-const OrchestrationContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const PageHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-`;
-
-const PageTitle = styled.h1`
-  font-size: 2.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-`;
-
-const PageSubtitle = styled.p`
-  font-size: 1.125rem;
-  color: #64748b;
-  margin: 0.5rem 0 0 0;
-`;
-
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 1rem;
-`;
-
-const Button = styled(motion.button)`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &.primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-    }
-  }
-
-  &.secondary {
-    background: white;
-    color: #4a5568;
-    border: 2px solid #e2e8f0;
-
-    &:hover {
-      border-color: #667eea;
-      color: #667eea;
-      transform: translateY(-2px);
-    }
-  }
-`;
-
-const ContentGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-`;
-
-const Section = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-`;
-
-const SectionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-`;
-
-const SessionForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-`;
-
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const Label = styled.label`
-  font-weight: 600;
-  color: #4a5568;
-`;
-
-const Input = styled.input`
-  padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-
-  &:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  }
-`;
-
-const TextArea = styled.textarea`
-  padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
-  min-height: 120px;
-  resize: vertical;
-  transition: all 0.2s ease;
-
-  &:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  }
-`;
-
-const AISystemGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-`;
-
-const AISystemCard = styled(motion.div)`
-  background: ${props => props.status === 'active' ? '#f0f9ff' : '#f8fafc'};
-  border: 2px solid ${props => props.status === 'active' ? '#3b82f6' : '#e2e8f0'};
-  border-radius: 12px;
-  padding: 1.5rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  }
-`;
-
-const AISystemIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  background: ${props => props.bg || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  margin: 0 auto 1rem;
-`;
-
-const AISystemName = styled.h4`
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1a202c;
-  margin: 0 0 0.5rem 0;
-`;
-
-const AISystemStatus = styled.div`
-  font-size: 0.875rem;
-  color: ${props => {
-    switch (props.status) {
-      case 'active': return '#3b82f6';
-      case 'healthy': return '#48bb78';
-      case 'degraded': return '#ed8936';
-      case 'down': return '#f56565';
-      default: return '#64748b';
-    }
-  }};
-  font-weight: 500;
-`;
-
-const SessionList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const SessionCard = styled(motion.div)`
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #f0f9ff;
-    border-color: #3b82f6;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  }
-`;
-
-const SessionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-`;
-
-const SessionTitle = styled.h4`
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1a202c;
-  margin: 0;
-`;
-
-const SessionStatus = styled.span`
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-
-  &.active {
-    background: #dbeafe;
-    color: #1d4ed8;
-  }
-
-  &.completed {
-    background: #dcfce7;
-    color: #166534;
-  }
-
-  &.failed {
-    background: #fee2e2;
-    color: #dc2626;
-  }
-`;
-
-const SessionDetails = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.875rem;
-  color: #64748b;
-`;
-
-const SessionActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-`;
-
-const ControlButton = styled.button`
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &.play {
-    background: #48bb78;
-    color: white;
-
-    &:hover {
-      background: #38a169;
-    }
-  }
-
-  &.pause {
-    background: #ed8936;
-    color: white;
-
-    &:hover {
-      background: #dd6b20;
-    }
-  }
-
-  &.stop {
-    background: #f56565;
-    color: white;
-
-    &:hover {
-      background: #e53e3e;
-    }
-  }
-`;
-
-const aiSystems = [
-  {
-    id: 'crewai',
-    name: 'CrewAI',
-    status: 'active',
-    icon: Brain,
-    bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-  },
-  {
-    id: 'mem0',
-    name: 'Mem0.ai',
-    status: 'healthy',
-    icon: Zap,
-    bg: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)'
-  },
-  {
-    id: 'orchestrator',
-    name: 'Orchestrator',
-    status: 'active',
-    icon: Network,
-    bg: 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)'
-  },
-  {
-    id: 'strategic',
-    name: 'Strategic AI',
-    status: 'healthy',
-    icon: Target,
-    bg: 'linear-gradient(135deg, #9f7aea 0%, #805ad5 100%)'
-  }
-];
-
-const mockSessions = [
-  {
-    id: '1',
-    name: 'BRICKS Strategic Analysis',
-    status: 'active',
-    created: '2 minutes ago',
-    collaborations: 12
-  },
-  {
-    id: '2',
-    name: 'Revenue Opportunity Mapping',
-    status: 'completed',
-    created: '1 hour ago',
-    collaborations: 8
-  },
-  {
-    id: '3',
-    name: 'Church Kit Integration',
-    status: 'active',
-    created: '3 hours ago',
-    collaborations: 15
-  }
-];
-
-function Orchestration() {
-  const [newSession, setNewSession] = useState({
-    name: '',
-    description: '',
-    analysisType: 'strategic'
+const Orchestration = () => {
+  const [activeTab, setActiveTab] = useState('execute');
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResults, setExecutionResults] = useState(null);
+  const [formData, setFormData] = useState({
+    taskType: 'strategic_analysis',
+    goal: '',
+    context: ''
   });
 
-  const handleSubmit = (e) => {
+  const taskTypes = [
+    { value: 'strategic_analysis', label: 'Strategic Analysis' },
+    { value: 'brick_development', label: 'BRICK Development' },
+    { value: 'revenue_optimization', label: 'Revenue Optimization' },
+    { value: 'gap_analysis', label: 'Gap Analysis' }
+  ];
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Starting new session:', newSession);
-    // TODO: Implement session creation
+    if (!formData.goal.trim()) {
+      toast.error('Please enter a goal');
+      return;
+    }
+
+    setIsExecuting(true);
+    toast.loading('Executing orchestration...');
+
+    try {
+      // Mock execution - in production this would call the API
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const mockResult = {
+        sessionId: `session_${Date.now()}`,
+        taskType: formData.taskType,
+        status: 'completed',
+        results: {
+          analysis: {
+            crewai: 'Strategic analysis completed using CrewAI multi-agent system',
+            multi_model: 'Multiple AI models provided diverse perspectives',
+            historical: 'Relevant historical context retrieved from memory'
+          },
+          recommendations: [
+            'Implement mobile application platform',
+            'Focus on API marketplace development',
+            'Optimize Church Kit Generator workflows'
+          ],
+          confidence: 0.92
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      setExecutionResults(mockResult);
+      toast.success('Orchestration completed successfully!');
+    } catch (error) {
+      toast.error('Orchestration failed');
+      console.error('Orchestration error:', error);
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
-  const handleSystemToggle = (systemId) => {
-    console.log('Toggling system:', systemId);
-    // TODO: Implement system toggle
-  };
+  const recentSessions = [
+    {
+      id: 'session_001',
+      goal: 'Analyze Church Kit Generator optimization',
+      status: 'completed',
+      timestamp: '2 minutes ago',
+      duration: '2m 34s'
+    },
+    {
+      id: 'session_002',
+      goal: 'Identify revenue opportunities',
+      status: 'completed',
+      timestamp: '15 minutes ago',
+      duration: '1m 45s'
+    },
+    {
+      id: 'session_003',
+      goal: 'Strategic gap analysis',
+      status: 'running',
+      timestamp: '1 hour ago',
+      duration: '5m 12s'
+    }
+  ];
 
   return (
-    <OrchestrationContainer>
-      <PageHeader>
-        <div>
-          <PageTitle>Orchestration Control</PageTitle>
-          <PageSubtitle>Coordinate AI systems for strategic BRICKS development</PageSubtitle>
-        </div>
-        <ActionButtons>
-          <Button
-            className="secondary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Settings size={20} />
-            Configure
-          </Button>
-          <Button
-            className="primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus size={20} />
-            New Session
-          </Button>
-        </ActionButtons>
-      </PageHeader>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <h1 className="text-3xl font-bold text-gray-900">AI Orchestration</h1>
+        <p className="mt-2 text-gray-600">
+          Coordinate multiple AI systems for strategic business intelligence
+        </p>
+      </div>
 
-      <ContentGrid>
-        <Section>
-          <SectionHeader>
-            <SectionTitle>
-              <Play size={24} />
-              Start New Session
-            </SectionTitle>
-          </SectionHeader>
-          <SessionForm onSubmit={handleSubmit}>
-            <FormGroup>
-              <Label>Session Name</Label>
-              <Input
-                type="text"
-                placeholder="e.g., BRICKS Strategic Analysis"
-                value={newSession.name}
-                onChange={(e) => setNewSession({ ...newSession, name: e.target.value })}
-              />
-            </FormGroup>
-            <FormGroup>
-              <Label>Description</Label>
-              <TextArea
-                placeholder="Describe the strategic objective and context..."
-                value={newSession.description}
-                onChange={(e) => setNewSession({ ...newSession, description: e.target.value })}
-              />
-            </FormGroup>
-            <FormGroup>
-              <Label>Analysis Type</Label>
-              <Input
-                type="text"
-                placeholder="strategic, revenue, gap_detection"
-                value={newSession.analysisType}
-                onChange={(e) => setNewSession({ ...newSession, analysisType: e.target.value })}
-              />
-            </FormGroup>
-            <Button
-              type="submit"
-              className="primary"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          {[
+            { id: 'execute', name: 'Execute Task' },
+            { id: 'sessions', name: 'Recent Sessions' },
+            { id: 'status', name: 'System Status' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
             >
-              <Play size={20} />
-              Start Orchestration
-            </Button>
-          </SessionForm>
-        </Section>
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-        <Section>
-          <SectionHeader>
-            <SectionTitle>
-              <Network size={24} />
-              AI Systems
-            </SectionTitle>
-          </SectionHeader>
-          <AISystemGrid>
-            {aiSystems.map((system, index) => {
-              const Icon = system.icon;
-              return (
-                <AISystemCard
-                  key={system.id}
-                  status={system.status}
-                  onClick={() => handleSystemToggle(system.id)}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+      {/* Execute Task Tab */}
+      {activeTab === 'execute' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">Execute Orchestration</h3>
+              <p className="text-sm text-gray-600">Configure and run AI orchestration tasks</p>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="label">Task Type</label>
+                <select
+                  value={formData.taskType}
+                  onChange={(e) => setFormData({ ...formData, taskType: e.target.value })}
+                  className="input"
                 >
-                  <AISystemIcon bg={system.bg}>
-                    <Icon size={24} />
-                  </AISystemIcon>
-                  <AISystemName>{system.name}</AISystemName>
-                  <AISystemStatus status={system.status}>
-                    {system.status.charAt(0).toUpperCase() + system.status.slice(1)}
-                  </AISystemStatus>
-                </AISystemCard>
-              );
-            })}
-          </AISystemGrid>
-        </Section>
-      </ContentGrid>
+                  {taskTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      <Section>
-        <SectionHeader>
-          <SectionTitle>
-            <Activity size={24} />
-            Active Sessions
-          </SectionTitle>
-        </SectionHeader>
-        <SessionList>
-          <AnimatePresence>
-            {mockSessions.map((session, index) => (
-              <SessionCard
-                key={session.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
+              <div>
+                <label className="label">Goal</label>
+                <textarea
+                  value={formData.goal}
+                  onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
+                  placeholder="Describe the goal or objective for this orchestration..."
+                  className="input"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="label">Context (Optional)</label>
+                <textarea
+                  value={formData.context}
+                  onChange={(e) => setFormData({ ...formData, context: e.target.value })}
+                  placeholder="Provide additional context or constraints..."
+                  className="input"
+                  rows={2}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isExecuting}
+                className={`btn-primary w-full ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <SessionHeader>
-                  <SessionTitle>{session.name}</SessionTitle>
-                  <SessionStatus className={session.status}>
-                    {session.status}
-                  </SessionStatus>
-                </SessionHeader>
-                <SessionDetails>
+                {isExecuting ? (
+                  <>
+                    <div className="spinner mr-2"></div>
+                    Executing...
+                  </>
+                ) : (
+                  <>
+                    <PlayIcon className="h-4 w-4 mr-2" />
+                    Execute Orchestration
+                  </>
+                )}
+              </button>
+            </form>
+          </motion.div>
+
+          {/* Results Panel */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">Execution Results</h3>
+            </div>
+            
+            {executionResults ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Session ID:</span>
+                  <span className="text-sm text-gray-900 font-mono">{executionResults.sessionId}</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Status:</span>
+                  <span className="status-healthy">Completed</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Confidence:</span>
+                  <span className="text-sm text-gray-900">{(executionResults.results.confidence * 100).toFixed(1)}%</span>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Recommendations:</h4>
+                  <ul className="space-y-1">
+                    {executionResults.results.recommendations.map((rec, index) => (
+                      <li key={index} className="text-sm text-gray-600 flex items-start">
+                        <CheckCircleIcon className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <CpuChipIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No execution results yet</p>
+                <p className="text-sm text-gray-400">Run an orchestration task to see results here</p>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Recent Sessions Tab */}
+      {activeTab === 'sessions' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="card"
+        >
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Orchestration Sessions</h3>
+            <p className="text-sm text-gray-600">History of AI orchestration executions</p>
+          </div>
+          
+          <div className="overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Session ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Goal
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Timestamp
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {recentSessions.map((session) => (
+                  <tr key={session.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                      {session.id}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {session.goal}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`status-indicator ${
+                        session.status === 'completed' ? 'status-healthy' :
+                        session.status === 'running' ? 'status-warning' :
+                        'status-danger'
+                      }`}>
+                        {session.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {session.duration}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {session.timestamp}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
+
+      {/* System Status Tab */}
+      {activeTab === 'status' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">AI Systems Status</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {[
+                { name: 'CrewAI', status: 'healthy', agents: 5 },
+                { name: 'Mem0.ai', status: 'healthy', memories: 150 },
+                { name: 'Devin AI', status: 'healthy', capabilities: 'Full' },
+                { name: 'Multi-Model Router', status: 'healthy', models: 6 },
+                { name: 'Copilot Studio', status: 'healthy', workflows: 3 }
+              ].map((system) => (
+                <div key={system.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <strong>{session.collaborations}</strong> AI collaborations
+                    <p className="text-sm font-medium text-gray-900">{system.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {system.agents && `${system.agents} agents`}
+                      {system.memories && `${system.memories} memories`}
+                      {system.capabilities && system.capabilities}
+                      {system.models && `${system.models} models`}
+                      {system.workflows && `${system.workflows} workflows`}
+                    </p>
                   </div>
-                  <div>Started {session.created}</div>
-                </SessionDetails>
-                <SessionActions style={{ marginTop: '1rem' }}>
-                  <ControlButton className="play" title="Resume">
-                    <Play size={16} />
-                  </ControlButton>
-                  <ControlButton className="pause" title="Pause">
-                    <Pause size={16} />
-                  </ControlButton>
-                  <ControlButton className="stop" title="Stop">
-                    <Square size={16} />
-                  </ControlButton>
-                </SessionActions>
-              </SessionCard>
-            ))}
-          </AnimatePresence>
-        </SessionList>
-      </Section>
-    </OrchestrationContainer>
+                  <span className="status-healthy">{system.status}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">Performance Metrics</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Average Response Time</span>
+                <span className="text-sm font-medium text-gray-900">250ms</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Success Rate</span>
+                <span className="text-sm font-medium text-gray-900">98.5%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Active Sessions</span>
+                <span className="text-sm font-medium text-gray-900">3</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Executions</span>
+                <span className="text-sm font-medium text-gray-900">1,247</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
   );
-}
+};
 
 export default Orchestration;

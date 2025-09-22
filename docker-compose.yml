@@ -6,65 +6,21 @@ services:
     image: postgres:15-alpine
     container_name: brick_orchestration_db
     environment:
-      POSTGRES_DB: brick_orchestration
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-brick_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brick_password}
+      POSTGRES_DB: ${POSTGRES_DB:-brick_orchestration}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - brick_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brick_user} -d ${POSTGRES_DB:-brick_orchestration}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - brick_network
-
-  # FastAPI Backend
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: brick_orchestration_backend
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/brick_orchestration
-      - DEBUG=false
-      - LOG_LEVEL=INFO
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - backend_logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - brick_network
-
-  # React Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: brick_orchestration_frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
-    depends_on:
-      - backend
-    networks:
-      - brick_network
 
   # Redis for caching and session management
   redis:
@@ -74,15 +30,65 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - brick_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brick_orchestration_backend
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-brick_user}:${POSTGRES_PASSWORD:-brick_password}@postgres:5432/${POSTGRES_DB:-brick_orchestration}
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/venv
     networks:
       - brick_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Nginx Reverse Proxy
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: brick_orchestration_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_ENVIRONMENT=development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - brick_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  # Nginx Reverse Proxy (for production)
   nginx:
     image: nginx:alpine
     container_name: brick_orchestration_nginx
@@ -93,53 +99,17 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
-      - backend
       - frontend
+      - backend
     networks:
       - brick_network
-
-  # Monitoring with Prometheus
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: brick_orchestration_prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    networks:
-      - brick_network
-
-  # Grafana for visualization
-  grafana:
-    image: grafana/grafana:latest
-    container_name: brick_orchestration_grafana
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    depends_on:
-      - prometheus
-    networks:
-      - brick_network
+    restart: unless-stopped
+    profiles:
+      - production
 
 volumes:
   postgres_data:
   redis_data:
-  backend_logs:
-  prometheus_data:
-  grafana_data:
 
 networks:
   brick_network:

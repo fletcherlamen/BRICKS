@@ -1,43 +1,53 @@
 """
-Database configuration and initialization.
+Database configuration and session management
 """
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import MetaData
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 import structlog
 
-from .config import settings
+from app.core.config import settings
 
-logger = structlog.get_logger()
+logger = structlog.get_logger(__name__)
 
-# Database engine
+# Create async engine with asyncpg driver
+async_database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    async_database_url,
     echo=settings.DEBUG,
     future=True
 )
 
-# Session factory
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False
+# Create async session factory
+AsyncSessionLocal = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
 )
 
-# Base class for models
+# Create base class for models
 Base = declarative_base()
 
-# Metadata for migrations
-metadata = MetaData()
+
+async def get_db():
+    """Dependency to get database session"""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception as e:
+            logger.error("Database session error", error=str(e))
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 async def init_db():
-    """Initialize database tables."""
+    """Initialize database tables"""
     try:
         async with engine.begin() as conn:
-            # Import models to register them
-            from app.models import orchestration, analytics
+            # Import all models to ensure they are registered
+            from app.models import user, orchestration, memory, brick
             
             # Create all tables
             await conn.run_sync(Base.metadata.create_all)
@@ -47,10 +57,10 @@ async def init_db():
         raise
 
 
-async def get_db() -> AsyncSession:
-    """Dependency to get database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+async def close_db():
+    """Close database connections"""
+    try:
+        await engine.dispose()
+        logger.info("Database connections closed")
+    except Exception as e:
+        logger.error("Error closing database connections", error=str(e))

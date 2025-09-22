@@ -1,0 +1,311 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+  CircleStackIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+  ClockIcon,
+  TagIcon,
+  DocumentTextIcon,
+} from '@heroicons/react/24/outline';
+
+const Memory = () => {
+  const [memories, setMemories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({});
+
+  useEffect(() => {
+    fetchMemoryData();
+  }, []);
+
+  const fetchMemoryData = async () => {
+    try {
+      // Mock data - in production this would fetch from API
+      const mockMemories = [
+        {
+          id: 'mem_001',
+          content: 'Church Kit Generator has high revenue potential and is performing well in production',
+          memory_type: 'strategy',
+          importance_score: 0.9,
+          tags: ['revenue', 'strategy', 'church-kit'],
+          source_system: 'crewai',
+          created_at: '2024-01-15T10:30:00Z',
+          access_count: 25
+        },
+        {
+          id: 'mem_002',
+          content: 'Mobile app development is identified as a critical gap in our ecosystem',
+          memory_type: 'gap',
+          importance_score: 0.8,
+          tags: ['gap', 'mobile', 'development'],
+          source_system: 'multi_model_router',
+          created_at: '2024-01-15T09:15:00Z',
+          access_count: 18
+        },
+        {
+          id: 'mem_003',
+          content: 'API marketplace opportunity estimated at $75K revenue potential',
+          memory_type: 'opportunity',
+          importance_score: 0.85,
+          tags: ['opportunity', 'api', 'marketplace'],
+          source_system: 'crewai',
+          created_at: '2024-01-15T08:45:00Z',
+          access_count: 12
+        },
+        {
+          id: 'mem_004',
+          content: 'Treasury management system integration completed successfully',
+          memory_type: 'fact',
+          importance_score: 0.7,
+          tags: ['integration', 'treasury', 'completed'],
+          source_system: 'devin_ai',
+          created_at: '2024-01-14T16:20:00Z',
+          access_count: 8
+        },
+        {
+          id: 'mem_005',
+          content: 'User feedback indicates need for improved mobile experience',
+          memory_type: 'experience',
+          importance_score: 0.75,
+          tags: ['feedback', 'mobile', 'ux'],
+          source_system: 'mem0',
+          created_at: '2024-01-14T14:30:00Z',
+          access_count: 15
+        }
+      ];
+
+      setMemories(mockMemories);
+
+      setStats({
+        total_memories: mockMemories.length,
+        memory_types: {
+          strategy: mockMemories.filter(m => m.memory_type === 'strategy').length,
+          gap: mockMemories.filter(m => m.memory_type === 'gap').length,
+          opportunity: mockMemories.filter(m => m.memory_type === 'opportunity').length,
+          fact: mockMemories.filter(m => m.memory_type === 'fact').length,
+          experience: mockMemories.filter(m => m.memory_type === 'experience').length
+        },
+        recent_memories: mockMemories.filter(m => 
+          new Date(m.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+        ).length,
+        session_count: 8
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch memory data:', error);
+      setLoading(false);
+    }
+  };
+
+  const getMemoryTypeColor = (type) => {
+    switch (type) {
+      case 'strategy': return 'badge-primary';
+      case 'gap': return 'badge-danger';
+      case 'opportunity': return 'badge-success';
+      case 'fact': return 'badge-secondary';
+      case 'experience': return 'badge-warning';
+      default: return 'badge-secondary';
+    }
+  };
+
+  const getImportanceColor = (score) => {
+    if (score >= 0.8) return 'text-red-600';
+    if (score >= 0.6) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  const filteredMemories = memories.filter(memory => {
+    const matchesSearch = memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         memory.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesType = selectedType === 'all' || memory.memory_type === selectedType;
+    return matchesSearch && matchesType;
+  });
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <h1 className="text-3xl font-bold text-gray-900">Memory System</h1>
+        <p className="mt-2 text-gray-600">
+          Persistent AI memory and knowledge management across all systems
+        </p>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { name: 'Total Memories', value: stats.total_memories, icon: CircleStackIcon, color: 'bg-blue-500' },
+          { name: 'Recent (24h)', value: stats.recent_memories, icon: ClockIcon, color: 'bg-green-500' },
+          { name: 'Active Sessions', value: stats.session_count, icon: DocumentTextIcon, color: 'bg-purple-500' },
+          { name: 'Memory Types', value: Object.keys(stats.memory_types || {}).length, icon: TagIcon, color: 'bg-yellow-500' }
+        ].map((stat, index) => (
+          <motion.div
+            key={stat.name}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+            className="card"
+          >
+            <div className="flex items-center">
+              <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
+                <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Search and Filters */}
+      <div className="card">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search memories by content or tags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input pl-10"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="input"
+            >
+              <option value="all">All Types</option>
+              <option value="strategy">Strategy</option>
+              <option value="gap">Gap</option>
+              <option value="opportunity">Opportunity</option>
+              <option value="fact">Fact</option>
+              <option value="experience">Experience</option>
+            </select>
+            <button className="btn-primary">
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Add Memory
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Memory List */}
+      <div className="space-y-4">
+        {filteredMemories.length === 0 ? (
+          <div className="card text-center py-12">
+            <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
+            <p className="text-gray-600">
+              {searchQuery || selectedType !== 'all' 
+                ? 'Try adjusting your search criteria'
+                : 'No memories have been stored yet'
+              }
+            </p>
+          </div>
+        ) : (
+          filteredMemories.map((memory, index) => (
+            <motion.div
+              key={memory.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.05 }}
+              className="card hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <CircleStackIcon className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <span className={`badge ${getMemoryTypeColor(memory.memory_type)}`}>
+                      {memory.memory_type}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {memory.source_system}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-sm font-medium ${getImportanceColor(memory.importance_score)}`}>
+                    {(memory.importance_score * 100).toFixed(0)}%
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {memory.access_count} accesses
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-gray-900 mb-3">{memory.content}</p>
+
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-1">
+                  {memory.tags.map((tag, tagIndex) => (
+                    <span
+                      key={tagIndex}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
+                    >
+                      <TagIcon className="h-3 w-3 mr-1" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-xs text-gray-500">
+                  {formatDate(memory.created_at)}
+                </span>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
+
+      {/* Memory Type Breakdown */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="card"
+      >
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Memory Type Breakdown</h3>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          {Object.entries(stats.memory_types || {}).map(([type, count]) => (
+            <div key={type} className="text-center">
+              <div className={`text-2xl font-bold ${getMemoryTypeColor(type).replace('badge-', 'text-')}`}>
+                {count}
+              </div>
+              <div className="text-sm text-gray-600 capitalize">{type}</div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default Memory;

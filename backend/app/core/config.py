@@ -1,54 +1,99 @@
 """
-Configuration settings for the I PROACTIVE BRICK Orchestration Intelligence.
+Configuration management for I PROACTIVE BRICK Orchestration Intelligence
 """
 
-from pydantic_settings import BaseSettings
 from typing import List, Optional
+from pydantic_settings import BaseSettings
+from pydantic import field_validator
 import os
 
 
 class Settings(BaseSettings):
-    """Application settings."""
+    """Application settings"""
     
     # Application
     APP_NAME: str = "I PROACTIVE BRICK Orchestration Intelligence"
-    VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = True
+    ENVIRONMENT: str = "development"
     
-    # API Keys - Multiple AI providers
+    # API Keys
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None
-    MEM0_API_KEY: Optional[str] = None
+    GOOGLE_GEMINI_API_KEY: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/brick_orchestration"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/brick_orchestration"
+    POSTGRES_USER: str = "brick_user"
+    POSTGRES_PASSWORD: str = "brick_password"
+    POSTGRES_DB: str = "brick_orchestration"
+    
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379"
+    
+    # CrewAI
+    CREWAI_API_KEY: Optional[str] = None
+    CREWAI_BASE_URL: str = "https://api.crewai.com"
+    
+    # Mem0.ai
+    MEM0_API_KEY: Optional[str] = None
+    MEM0_BASE_URL: str = "https://api.mem0.ai"
+    
+    # Devin AI
+    DEVIN_API_KEY: Optional[str] = None
+    DEVIN_BASE_URL: str = "https://api.devin.ai"
+    
+    # Microsoft Copilot Studio
+    COPILOT_STUDIO_API_KEY: Optional[str] = None
+    COPILOT_STUDIO_BASE_URL: str = "https://api.copilot.microsoft.com"
+    
+    # GitHub Copilot
+    GITHUB_COPILOT_TOKEN: Optional[str] = None
+    
+    # Security
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_SECRET_KEY: str = "your-jwt-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000"
-    ]
-    
-    # CrewAI Configuration
-    CREWAI_MAX_ITERATIONS: int = 10
-    CREWAI_VERBOSE: bool = True
-    
-    # Mem0 Configuration
-    MEM0_HOST: str = "https://api.mem0.ai"
-    MEM0_PROJECT_ID: str = "brick-orchestration"
-    
-    # Orchestration
-    MAX_CONCURRENT_TASKS: int = 5
-    TASK_TIMEOUT: int = 300  # 5 minutes
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # Logging
     LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"
     
-    # Security
-    SECRET_KEY: str = "your-secret-key-here"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Monitoring
+    ENABLE_METRICS: bool = True
+    METRICS_PORT: int = 9090
+    
+    # Business Systems
+    CHURCH_KIT_API_KEY: Optional[str] = None
+    CHURCH_KIT_BASE_URL: str = "https://api.churchkit.com"
+    
+    GLOBAL_SKY_AI_API_KEY: Optional[str] = None
+    GLOBAL_SKY_AI_BASE_URL: str = "https://api.globalskyai.com"
+    
+    TREASURY_API_KEY: Optional[str] = None
+    TREASURY_BASE_URL: str = "https://api.treasury.com"
+    
+    DREAM_BIG_MASKS_API_KEY: Optional[str] = None
+    DREAM_BIG_MASKS_BASE_URL: str = "https://api.dreambigmasks.com"
+    
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",")]
+        return v
+    
+    @field_validator("ENVIRONMENT")
+    @classmethod
+    def validate_environment(cls, v):
+        allowed = ["development", "staging", "production"]
+        if v not in allowed:
+            raise ValueError(f"Environment must be one of {allowed}")
+        return v
     
     class Config:
         env_file = ".env"

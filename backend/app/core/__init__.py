@@ -1,1 +1,1 @@
-# Core configuration and database modules
+# Core modules

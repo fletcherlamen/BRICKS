@@ -1,441 +1,271 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Brain, 
-  Network, 
-  Activity, 
-  TrendingUp,
-  Zap,
-  Target,
-  BarChart3,
-  Clock
-} from 'lucide-react';
+import {
+  CpuChipIcon,
+  CubeIcon,
+  CircleStackIcon,
+  HeartIcon,
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+} from '@heroicons/react/24/outline';
+import axios from 'axios';
 
-const DashboardContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
+const Dashboard = () => {
+  const [stats, setStats] = useState({
+    activeSessions: 0,
+    totalBricks: 0,
+    revenueOpportunities: 0,
+    systemHealth: 'healthy'
+  });
+  const [loading, setLoading] = useState(true);
 
-const DashboardHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-`;
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-const HeaderTitle = styled.h1`
-  font-size: 2.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-`;
-
-const HeaderSubtitle = styled.p`
-  font-size: 1.125rem;
-  color: #64748b;
-  margin: 0.5rem 0 0 0;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-`;
-
-const StatCard = styled(motion.div)`
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: ${props => props.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};
-  }
-`;
-
-const StatHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-`;
-
-const StatIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  background: ${props => props.bg || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-`;
-
-const StatValue = styled.div`
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: #1a202c;
-  margin-bottom: 0.5rem;
-`;
-
-const StatLabel = styled.div`
-  font-size: 1rem;
-  font-weight: 600;
-  color: #4a5568;
-  margin-bottom: 0.25rem;
-`;
-
-const StatChange = styled.div`
-  font-size: 0.875rem;
-  color: ${props => props.positive ? '#48bb78' : '#f56565'};
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-`;
-
-const ContentGrid = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
-`;
-
-const MainContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const Section = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-`;
-
-const SectionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-`;
-
-const ActivityList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const ActivityItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  border-left: 4px solid #667eea;
-`;
-
-const ActivityIcon = styled.div`
-  width: 40px;
-  height: 40px;
-  background: #667eea;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-`;
-
-const ActivityContent = styled.div`
-  flex: 1;
-`;
-
-const ActivityTitle = styled.div`
-  font-weight: 600;
-  color: #1a202c;
-  margin-bottom: 0.25rem;
-`;
-
-const ActivityTime = styled.div`
-  font-size: 0.875rem;
-  color: #64748b;
-`;
-
-const Sidebar = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const QuickActions = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const ActionButton = styled(motion.button)`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  color: #4a5568;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #667eea;
-    color: #667eea;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
-  }
-`;
-
-const SystemStatus = styled.div`
-  .status-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #e2e8f0;
-
-    &:last-child {
-      border-bottom: none;
+  const fetchDashboardData = async () => {
+    try {
+      // Mock data for now - in production this would fetch from API
+      setStats({
+        activeSessions: 3,
+        totalBricks: 15,
+        revenueOpportunities: 8,
+        systemHealth: 'healthy'
+      });
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      setLoading(false);
     }
+  };
+
+  const statCards = [
+    {
+      name: 'Active Sessions',
+      value: stats.activeSessions,
+      icon: CpuChipIcon,
+      color: 'bg-blue-500',
+      change: '+12%',
+      changeType: 'positive'
+    },
+    {
+      name: 'Total BRICKS',
+      value: stats.totalBricks,
+      icon: CubeIcon,
+      color: 'bg-green-500',
+      change: '+3',
+      changeType: 'positive'
+    },
+    {
+      name: 'Revenue Opportunities',
+      value: stats.revenueOpportunities,
+      icon: CurrencyDollarIcon,
+      color: 'bg-yellow-500',
+      change: '+2',
+      changeType: 'positive'
+    },
+    {
+      name: 'System Health',
+      value: stats.systemHealth,
+      icon: HeartIcon,
+      color: 'bg-green-500',
+      change: '100%',
+      changeType: 'positive'
+    }
+  ];
+
+  const recentActivities = [
+    {
+      id: 1,
+      type: 'orchestration',
+      title: 'Strategic Analysis Completed',
+      description: 'AI systems analyzed Church Kit Generator optimization opportunities',
+      timestamp: '2 minutes ago',
+      status: 'completed'
+    },
+    {
+      id: 2,
+      type: 'brick',
+      title: 'New BRICK Identified',
+      description: 'Mobile App Platform gap identified with high priority',
+      timestamp: '15 minutes ago',
+      status: 'pending'
+    },
+    {
+      id: 3,
+      type: 'revenue',
+      title: 'Revenue Opportunity Found',
+      description: 'API Marketplace opportunity estimated at $75K revenue',
+      timestamp: '1 hour ago',
+      status: 'evaluating'
+    },
+    {
+      id: 4,
+      type: 'memory',
+      title: 'Memory Updated',
+      description: 'Strategic insights stored in persistent memory',
+      timestamp: '2 hours ago',
+      status: 'completed'
+    }
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="spinner"></div>
+      </div>
+    );
   }
 
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #48bb78;
-    animation: pulse 2s infinite;
-  }
-`;
-
-const stats = [
-  {
-    icon: Brain,
-    value: '3',
-    label: 'Active Sessions',
-    change: '+12%',
-    positive: true,
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-  },
-  {
-    icon: Network,
-    value: '24',
-    label: 'AI Collaborations',
-    change: '+8%',
-    positive: true,
-    gradient: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)'
-  },
-  {
-    icon: Activity,
-    value: '156',
-    label: 'Tasks Completed',
-    change: '+23%',
-    positive: true,
-    gradient: 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)'
-  },
-  {
-    icon: TrendingUp,
-    value: '$12.5K',
-    label: 'Revenue Opportunities',
-    change: '+15%',
-    positive: true,
-    gradient: 'linear-gradient(135deg, #9f7aea 0%, #805ad5 100%)'
-  }
-];
-
-const recentActivity = [
-  {
-    icon: Brain,
-    title: 'Strategic Analysis Completed',
-    description: 'BRICKS roadmap analysis for Q1 2024',
-    time: '2 minutes ago'
-  },
-  {
-    icon: Network,
-    title: 'CrewAI Collaboration',
-    description: 'Multi-agent coordination session started',
-    time: '15 minutes ago'
-  },
-  {
-    icon: Zap,
-    title: 'Mem0.ai Memory Updated',
-    description: 'Strategic context persisted successfully',
-    time: '32 minutes ago'
-  },
-  {
-    icon: Target,
-    title: 'Revenue Opportunity Identified',
-    description: 'Church Kit Generator integration potential',
-    time: '1 hour ago'
-  }
-];
-
-const systemStatusData = [
-  { name: 'CrewAI', status: 'healthy' },
-  { name: 'Mem0.ai', status: 'healthy' },
-  { name: 'Database', status: 'healthy' },
-  { name: 'API Gateway', status: 'healthy' }
-];
-
-function Dashboard() {
   return (
-    <DashboardContainer>
-      <DashboardHeader>
-        <div>
-          <HeaderTitle>Dashboard</HeaderTitle>
-          <HeaderSubtitle>I PROACTIVE BRICK Orchestration Intelligence</HeaderSubtitle>
-        </div>
-      </DashboardHeader>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="mt-2 text-gray-600">
+          I PROACTIVE BRICK Orchestration Intelligence - Real-time System Overview
+        </p>
+      </div>
 
-      <StatsGrid>
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <StatCard
-              key={index}
-              gradient={stat.gradient}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <StatHeader>
-                <StatIcon bg={stat.gradient}>
-                  <Icon size={24} />
-                </StatIcon>
-              </StatHeader>
-              <StatValue>{stat.value}</StatValue>
-              <StatLabel>{stat.label}</StatLabel>
-              <StatChange positive={stat.positive}>
-                <TrendingUp size={16} />
-                {stat.change} from last week
-              </StatChange>
-            </StatCard>
-          );
-        })}
-      </StatsGrid>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.name}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+            className="card hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center">
+              <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
+                <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className={`text-sm ${stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
+                  {stat.change} from last week
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
-      <ContentGrid>
-        <MainContent>
-          <Section>
-            <SectionHeader>
-              <SectionTitle>
-                <Activity size={24} />
-                Recent Activity
-              </SectionTitle>
-            </SectionHeader>
-            <ActivityList>
-              {recentActivity.map((activity, index) => {
-                const Icon = activity.icon;
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <ActivityItem>
-                      <ActivityIcon>
-                        <Icon size={20} />
-                      </ActivityIcon>
-                      <ActivityContent>
-                        <ActivityTitle>{activity.title}</ActivityTitle>
-                        <ActivityTime>{activity.time}</ActivityTime>
-                      </ActivityContent>
-                    </ActivityItem>
-                  </motion.div>
-                );
-              })}
-            </ActivityList>
-          </Section>
-        </MainContent>
-
-        <Sidebar>
-          <Section>
-            <SectionHeader>
-              <SectionTitle>
-                <Zap size={24} />
-                Quick Actions
-              </SectionTitle>
-            </SectionHeader>
-            <QuickActions>
-              <ActionButton
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Brain size={20} />
-                Start New Session
-              </ActionButton>
-              <ActionButton
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Target size={20} />
-                Strategic Analysis
-              </ActionButton>
-              <ActionButton
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <BarChart3 size={20} />
-                View Analytics
-              </ActionButton>
-            </QuickActions>
-          </Section>
-
-          <Section>
-            <SectionHeader>
-              <SectionTitle>
-                <Clock size={24} />
-                System Status
-              </SectionTitle>
-            </SectionHeader>
-            <SystemStatus>
-              {systemStatusData.map((item, index) => (
-                <div key={index} className="status-item">
-                  <span>{item.name}</span>
-                  <div className="status-dot" />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Recent Activities */}
+        <div className="lg:col-span-2">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
+              <p className="text-sm text-gray-600">Latest orchestration and analysis activities</p>
+            </div>
+            <div className="space-y-4">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50">
+                  <div className={`p-2 rounded-full ${
+                    activity.type === 'orchestration' ? 'bg-blue-100' :
+                    activity.type === 'brick' ? 'bg-green-100' :
+                    activity.type === 'revenue' ? 'bg-yellow-100' :
+                    'bg-purple-100'
+                  }`}>
+                    {activity.type === 'orchestration' && <CpuChipIcon className="h-4 w-4 text-blue-600" />}
+                    {activity.type === 'brick' && <CubeIcon className="h-4 w-4 text-green-600" />}
+                    {activity.type === 'revenue' && <CurrencyDollarIcon className="h-4 w-4 text-yellow-600" />}
+                    {activity.type === 'memory' && <CircleStackIcon className="h-4 w-4 text-purple-600" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                      <span className={`badge ${
+                        activity.status === 'completed' ? 'badge-success' :
+                        activity.status === 'pending' ? 'badge-warning' :
+                        'badge-primary'
+                      }`}>
+                        {activity.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{activity.description}</p>
+                    <p className="text-xs text-gray-500 mt-1">{activity.timestamp}</p>
+                  </div>
                 </div>
               ))}
-            </SystemStatus>
-          </Section>
-        </Sidebar>
-      </ContentGrid>
-    </DashboardContainer>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* System Status */}
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">System Status</h3>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">AI Orchestrator</span>
+                <span className="status-healthy">Healthy</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">CrewAI</span>
+                <span className="status-healthy">Healthy</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Mem0.ai</span>
+                <span className="status-healthy">Healthy</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Multi-Model Router</span>
+                <span className="status-healthy">Healthy</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Database</span>
+                <span className="status-healthy">Connected</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="card"
+          >
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+            </div>
+            <div className="space-y-3">
+              <button className="btn-primary w-full">
+                Start New Analysis
+              </button>
+              <button className="btn-outline w-full">
+                View BRICKS
+              </button>
+              <button className="btn-outline w-full">
+                Check Memory
+              </button>
+              <button className="btn-outline w-full">
+                System Health
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
 export default Dashboard;
