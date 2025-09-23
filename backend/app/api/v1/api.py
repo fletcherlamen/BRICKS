@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics
+from app.api.v1.endpoints import health, message_bus, metrics, memory
 
 api_router = APIRouter()
 
@@ -25,4 +25,11 @@ api_router.include_router(
     metrics.router,
     prefix="/metrics",
     tags=["ubic-metrics"]
+)
+
+# Enhanced Memory System (Client Requested)
+api_router.include_router(
+    memory.router,
+    prefix="/memory",
+    tags=["enhanced-memory"]
 )

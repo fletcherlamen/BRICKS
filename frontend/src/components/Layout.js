@@ -8,6 +8,7 @@ import {
   CircleStackIcon,
   HeartIcon,
   WrenchScrewdriverIcon,
+  DocumentIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Orchestration', href: '/orchestration', icon: CpuChipIcon },
   { name: 'BRICKS', href: '/bricks', icon: CubeIcon },
   { name: 'Memory', href: '/memory', icon: CircleStackIcon },
+  { name: 'Enhanced Memory', href: '/enhanced-memory', icon: DocumentIcon },
   { name: 'Health', href: '/health', icon: HeartIcon },
   { name: 'UBIC Health', href: '/ubic-health', icon: WrenchScrewdriverIcon },
 ];

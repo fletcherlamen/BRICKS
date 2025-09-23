@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Orchestration from './pages/Orchestration';
 import Bricks from './pages/Bricks';
 import Memory from './pages/Memory';
+import EnhancedMemory from './pages/EnhancedMemory';
 import Health from './pages/Health';
 import UbicHealth from './pages/UbicHealth';
 import NotFound from './pages/NotFound';
@@ -24,6 +25,7 @@ function App() {
           <Route path="/orchestration" element={<Orchestration />} />
           <Route path="/bricks" element={<Bricks />} />
           <Route path="/memory" element={<Memory />} />
+          <Route path="/enhanced-memory" element={<EnhancedMemory />} />
           <Route path="/health" element={<Health />} />
           <Route path="/ubic-health" element={<UbicHealth />} />
           <Route path="*" element={<NotFound />} />

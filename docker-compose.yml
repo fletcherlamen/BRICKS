@@ -79,6 +79,8 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:8000
       - REACT_APP_ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
