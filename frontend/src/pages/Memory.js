@@ -7,96 +7,209 @@ import {
   ClockIcon,
   TagIcon,
   DocumentTextIcon,
+  DocumentIcon,
+  CloudArrowUpIcon,
+  FolderIcon,
+  XMarkIcon,
+  CheckIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
-const Memory = () => {
+const EnhancedMemory = () => {
   const [memories, setMemories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [categories, setCategories] = useState({});
+  const [availableTags, setAvailableTags] = useState({});
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [largeText, setLargeText] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [newMemory, setNewMemory] = useState({
+    content: '',
+    memory_type: 'fact',
+    category: 'general',
+    importance_score: 0.5,
+    tags: [],
+    source_type: 'text'
+  });
 
   useEffect(() => {
     fetchMemoryData();
+    fetchCategories();
+    fetchTags();
   }, []);
 
   const fetchMemoryData = async () => {
     try {
-      // Mock data - in production this would fetch from API
-      const mockMemories = [
-        {
-          id: 'mem_001',
-          content: 'Church Kit Generator has high revenue potential and is performing well in production',
-          memory_type: 'strategy',
-          importance_score: 0.9,
-          tags: ['revenue', 'strategy', 'church-kit'],
-          source_system: 'crewai',
-          created_at: '2024-01-15T10:30:00Z',
-          access_count: 25
-        },
-        {
-          id: 'mem_002',
-          content: 'Mobile app development is identified as a critical gap in our ecosystem',
-          memory_type: 'gap',
-          importance_score: 0.8,
-          tags: ['gap', 'mobile', 'development'],
-          source_system: 'multi_model_router',
-          created_at: '2024-01-15T09:15:00Z',
-          access_count: 18
-        },
-        {
-          id: 'mem_003',
-          content: 'API marketplace opportunity estimated at $75K revenue potential',
-          memory_type: 'opportunity',
-          importance_score: 0.85,
-          tags: ['opportunity', 'api', 'marketplace'],
-          source_system: 'crewai',
-          created_at: '2024-01-15T08:45:00Z',
-          access_count: 12
-        },
-        {
-          id: 'mem_004',
-          content: 'Treasury management system integration completed successfully',
-          memory_type: 'fact',
-          importance_score: 0.7,
-          tags: ['integration', 'treasury', 'completed'],
-          source_system: 'devin_ai',
-          created_at: '2024-01-14T16:20:00Z',
-          access_count: 8
-        },
-        {
-          id: 'mem_005',
-          content: 'User feedback indicates need for improved mobile experience',
-          memory_type: 'experience',
-          importance_score: 0.75,
-          tags: ['feedback', 'mobile', 'ux'],
-          source_system: 'mem0',
-          created_at: '2024-01-14T14:30:00Z',
-          access_count: 15
-        }
-      ];
-
-      setMemories(mockMemories);
-
-      setStats({
-        total_memories: mockMemories.length,
-        memory_types: {
-          strategy: mockMemories.filter(m => m.memory_type === 'strategy').length,
-          gap: mockMemories.filter(m => m.memory_type === 'gap').length,
-          opportunity: mockMemories.filter(m => m.memory_type === 'opportunity').length,
-          fact: mockMemories.filter(m => m.memory_type === 'fact').length,
-          experience: mockMemories.filter(m => m.memory_type === 'experience').length
-        },
-        recent_memories: mockMemories.filter(m => 
-          new Date(m.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-        ).length,
-        session_count: 8
-      });
-
+      let url = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`;
+      const params = new URLSearchParams();
+      
+      if (selectedCategory) params.append('category', selectedCategory);
+      if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      setMemories(data.memories || []);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to fetch memory data:', error);
+      console.error('Error fetching memories:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/categories`);
+      const data = await response.json();
+      setCategories(data.categories || {});
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/tags`);
+      const data = await response.json();
+      setAvailableTags(data.tags || {});
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', 'documents');
+      formData.append('tags', JSON.stringify(['uploaded', 'document']));
+      formData.append('importance_score', '0.7');
+      formData.append('auto_extract', 'true');
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        // Refresh memories
+        fetchMemoryData();
+        setUploadedFile(null);
+        setShowFileUpload(false);
+        alert('File uploaded successfully!');
+      } else {
+        alert('Error uploading file: ' + result.detail);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Error uploading file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLargeTextUpload = async () => {
+    if (!largeText.trim()) return;
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('content', largeText);
+      formData.append('category', 'general');
+      formData.append('tags', JSON.stringify(['text', 'large-content']));
+      formData.append('importance_score', '0.6');
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload-text`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        // Refresh memories
+        fetchMemoryData();
+        setLargeText('');
+        setShowAddForm(false);
+        alert('Large text uploaded successfully!');
+      } else {
+        alert('Error uploading text: ' + result.detail);
+      }
+    } catch (error) {
+      console.error('Error uploading text:', error);
+      alert('Error uploading text');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAddMemory = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newMemory)
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        fetchMemoryData();
+        setNewMemory({
+          content: '',
+          memory_type: 'fact',
+          category: 'general',
+          importance_score: 0.5,
+          tags: [],
+          source_type: 'text'
+        });
+        setShowAddForm(false);
+        alert('Memory added successfully!');
+      } else {
+        alert('Error adding memory: ' + result.detail);
+      }
+    } catch (error) {
+      console.error('Error adding memory:', error);
+      alert('Error adding memory');
+    }
+  };
+
+  const handleDeleteMemory = async (memoryId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/${memoryId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        fetchMemoryData();
+        alert('Memory deleted successfully!');
+      } else {
+        const result = await response.json();
+        alert('Error deleting memory: ' + (result.detail || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+      alert('Error deleting memory');
     }
   };
 
@@ -107,21 +220,25 @@ const Memory = () => {
       case 'opportunity': return 'badge-success';
       case 'fact': return 'badge-secondary';
       case 'experience': return 'badge-warning';
+      case 'document': return 'badge-info';
+      case 'text': return 'badge-accent';
       default: return 'badge-secondary';
     }
   };
 
-  const getImportanceColor = (score) => {
-    if (score >= 0.8) return 'text-red-600';
-    if (score >= 0.6) return 'text-yellow-600';
-    return 'text-green-600';
+  const getSourceTypeIcon = (sourceType) => {
+    switch (sourceType) {
+      case 'pdf': return DocumentIcon;
+      case 'markdown': return DocumentTextIcon;
+      case 'text': return DocumentTextIcon;
+      default: return CircleStackIcon;
+    }
   };
 
   const filteredMemories = memories.filter(memory => {
     const matchesSearch = memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          memory.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesType = selectedType === 'all' || memory.memory_type === selectedType;
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
 
   const formatDate = (dateString) => {
@@ -132,6 +249,14 @@ const Memory = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (loading) {
@@ -146,19 +271,19 @@ const Memory = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="border-b border-gray-200 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900">Memory System</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Enhanced Memory System</h1>
         <p className="mt-2 text-gray-600">
-          Persistent AI memory and knowledge management across all systems
+          Upload files (PDF, .md, .txt), paste large text, and organize with categories and tags
         </p>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { name: 'Total Memories', value: stats.total_memories, icon: CircleStackIcon, color: 'bg-blue-500' },
-          { name: 'Recent (24h)', value: stats.recent_memories, icon: ClockIcon, color: 'bg-green-500' },
-          { name: 'Active Sessions', value: stats.session_count, icon: DocumentTextIcon, color: 'bg-purple-500' },
-          { name: 'Memory Types', value: Object.keys(stats.memory_types || {}).length, icon: TagIcon, color: 'bg-yellow-500' }
+          { name: 'Total Memories', value: memories.length, icon: CircleStackIcon, color: 'bg-blue-500' },
+          { name: 'Categories', value: Object.keys(categories).length, icon: FolderIcon, color: 'bg-green-500' },
+          { name: 'Available Tags', value: Object.keys(availableTags).length, icon: TagIcon, color: 'bg-purple-500' },
+          { name: 'Documents', value: memories.filter(m => m.source_type === 'pdf' || m.file_name).length, icon: DocumentIcon, color: 'bg-yellow-500' }
         ].map((stat, index) => (
           <motion.div
             key={stat.name}
@@ -180,6 +305,164 @@ const Memory = () => {
         ))}
       </div>
 
+      {/* Upload and Add Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* File Upload */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="card"
+        >
+          <div className="flex items-center mb-4">
+            <CloudArrowUpIcon className="h-6 w-6 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Upload Files</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Upload PDF, .md, or .txt files for automatic text extraction
+          </p>
+          
+          <div className="space-y-3">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <DocumentIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600 mb-2">Drop files here or click to browse</p>
+              <input
+                type="file"
+                accept=".pdf,.md,.txt,.markdown"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="file-upload"
+                disabled={uploading}
+              />
+              <label
+                htmlFor="file-upload"
+                className="btn-primary cursor-pointer"
+              >
+                {uploading ? 'Uploading...' : 'Choose Files'}
+              </label>
+            </div>
+            
+            {uploadedFile && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-center">
+                  <CheckIcon className="h-5 w-5 text-green-600 mr-2" />
+                  <span className="text-sm text-green-800">
+                    {uploadedFile.name} ({formatFileSize(uploadedFile.size)})
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Large Text Upload */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="card"
+        >
+          <div className="flex items-center mb-4">
+            <DocumentTextIcon className="h-6 w-6 text-green-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Large Text</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Paste large amounts of text content (up to 100KB)
+          </p>
+          
+          <div className="space-y-3">
+            <textarea
+              value={largeText}
+              onChange={(e) => setLargeText(e.target.value)}
+              placeholder="Paste your large text content here..."
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none"
+              rows={6}
+              disabled={uploading}
+            />
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">
+                {largeText.length}/100,000 characters
+              </span>
+              <button
+                onClick={handleLargeTextUpload}
+                disabled={!largeText.trim() || uploading}
+                className="btn-primary disabled:opacity-50"
+              >
+                {uploading ? 'Uploading...' : 'Upload Text'}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Quick Add Memory */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="card"
+        >
+          <div className="flex items-center mb-4">
+            <PlusIcon className="h-6 w-6 text-purple-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Quick Add</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Add a simple memory with category and tags
+          </p>
+          
+          <div className="space-y-3">
+            <textarea
+              value={newMemory.content}
+              onChange={(e) => setNewMemory({...newMemory, content: e.target.value})}
+              placeholder="Enter memory content..."
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none"
+              rows={3}
+            />
+            
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={newMemory.category}
+                onChange={(e) => setNewMemory({...newMemory, category: e.target.value})}
+                className="input text-sm"
+              >
+                <option value="general">General</option>
+                <option value="business">Business</option>
+                <option value="technical">Technical</option>
+                <option value="documents">Documents</option>
+                <option value="research">Research</option>
+              </select>
+              
+              <select
+                value={newMemory.memory_type}
+                onChange={(e) => setNewMemory({...newMemory, memory_type: e.target.value})}
+                className="input text-sm"
+              >
+                <option value="fact">Fact</option>
+                <option value="strategy">Strategy</option>
+                <option value="gap">Gap</option>
+                <option value="opportunity">Opportunity</option>
+                <option value="experience">Experience</option>
+              </select>
+            </div>
+            
+            <input
+              type="text"
+              value={newMemory.tags.join(', ')}
+              onChange={(e) => setNewMemory({...newMemory, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t)})}
+              placeholder="Tags (comma-separated)"
+              className="input text-sm"
+            />
+            
+            <button
+              onClick={handleAddMemory}
+              disabled={!newMemory.content.trim()}
+              className="btn-primary w-full disabled:opacity-50"
+            >
+              Add Memory
+            </button>
+          </div>
+        </motion.div>
+      </div>
+
       {/* Search and Filters */}
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -197,21 +480,25 @@ const Memory = () => {
           </div>
           <div className="flex gap-2">
             <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
               className="input"
             >
-              <option value="all">All Types</option>
-              <option value="strategy">Strategy</option>
-              <option value="gap">Gap</option>
-              <option value="opportunity">Opportunity</option>
-              <option value="fact">Fact</option>
-              <option value="experience">Experience</option>
+              <option value="">All Categories</option>
+              {Object.entries(categories).map(([key, category]) => (
+                <option key={key} value={key}>{category.name}</option>
+              ))}
             </select>
-            <button className="btn-primary">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add Memory
-            </button>
+            <select
+              value={selectedTags.join(',')}
+              onChange={(e) => setSelectedTags(e.target.value ? e.target.value.split(',') : [])}
+              className="input"
+            >
+              <option value="">All Tags</option>
+              {Object.entries(availableTags).map(([tag, info]) => (
+                <option key={tag} value={tag}>{tag} ({info.count})</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -223,89 +510,84 @@ const Memory = () => {
             <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
             <p className="text-gray-600">
-              {searchQuery || selectedType !== 'all' 
+              {searchQuery || selectedCategory || selectedTags.length > 0
                 ? 'Try adjusting your search criteria'
-                : 'No memories have been stored yet'
+                : 'Upload files or add memories to get started'
               }
             </p>
           </div>
         ) : (
-          filteredMemories.map((memory, index) => (
-            <motion.div
-              key={memory.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="card hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <CircleStackIcon className="h-5 w-5 text-purple-600" />
+          filteredMemories.map((memory, index) => {
+            const SourceIcon = getSourceTypeIcon(memory.source_type);
+            return (
+              <motion.div
+                key={memory.memory_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.05 }}
+                className="card hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <SourceIcon className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <span className={`badge ${getMemoryTypeColor(memory.memory_type)}`}>
+                        {memory.memory_type}
+                      </span>
+                      <span className="badge badge-outline ml-2">
+                        {memory.category}
+                      </span>
+                      {memory.file_name && (
+                        <span className="text-xs text-gray-500 ml-2">
+                          {memory.file_name} ({formatFileSize(memory.file_size || 0)})
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className={`badge ${getMemoryTypeColor(memory.memory_type)}`}>
-                      {memory.memory_type}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-600">
+                      {(memory.importance_score * 100).toFixed(0)}%
                     </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {memory.source_system}
+                    <span className="text-xs text-gray-500">
+                      {memory.source_type}
                     </span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`text-sm font-medium ${getImportanceColor(memory.importance_score)}`}>
-                    {(memory.importance_score * 100).toFixed(0)}%
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {memory.access_count} accesses
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-gray-900 mb-3">{memory.content}</p>
-
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-1">
-                  {memory.tags.map((tag, tagIndex) => (
-                    <span
-                      key={tagIndex}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
+                    <button
+                      onClick={() => handleDeleteMemory(memory.memory_id)}
+                      className="text-red-500 hover:text-red-700 transition-colors p-1 rounded"
+                      title="Delete memory"
                     >
-                      <TagIcon className="h-3 w-3 mr-1" />
-                      {tag}
-                    </span>
-                  ))}
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {formatDate(memory.created_at)}
-                </span>
-              </div>
-            </motion.div>
-          ))
+
+                <p className="text-gray-900 mb-3 line-clamp-3">{memory.content}</p>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap gap-1">
+                    {memory.tags.map((tag, tagIndex) => (
+                      <span
+                        key={tagIndex}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
+                      >
+                        <TagIcon className="h-3 w-3 mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {formatDate(memory.timestamp || memory.created_at)}
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })
         )}
       </div>
-
-      {/* Memory Type Breakdown */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-        className="card"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Memory Type Breakdown</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-          {Object.entries(stats.memory_types || {}).map(([type, count]) => (
-            <div key={type} className="text-center">
-              <div className={`text-2xl font-bold ${getMemoryTypeColor(type).replace('badge-', 'text-')}`}>
-                {count}
-              </div>
-              <div className="text-sm text-gray-600 capitalize">{type}</div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </div>
   );
 };
 
-export default Memory;
+export default EnhancedMemory;

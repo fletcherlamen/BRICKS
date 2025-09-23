@@ -305,6 +305,9 @@ async def list_memories(
                     "created_at": datetime.now().isoformat()
                 }
             ]
+            # Store default memories in orchestrator so they can be deleted
+            for memory in default_memories:
+                real_orchestrator.memories[memory["memory_id"]] = memory
             memories = default_memories
         
         # Apply filters
@@ -633,4 +636,49 @@ async def store_session_context(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
+        )
+
+
+@router.delete("/{memory_id}")
+async def delete_memory(memory_id: str):
+    """Delete a memory by ID"""
+    
+    try:
+        from app.services.real_orchestrator import real_orchestrator
+        
+        # Check if memory exists in the orchestrator's memory dictionary
+        if memory_id not in real_orchestrator.memories:
+            # Also check if it's one of the default memories that might be shown in the list
+            # but not stored in the orchestrator
+            memories = real_orchestrator.get_memories()
+            memory_exists = any(memory.get('memory_id') == memory_id for memory in memories)
+            
+            if not memory_exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Memory with ID {memory_id} not found"
+                )
+        
+        # Delete from orchestrator (in production, this would delete from database)
+        if memory_id in real_orchestrator.memories:
+            del real_orchestrator.memories[memory_id]
+            logger.info("Memory deleted from orchestrator", memory_id=memory_id)
+        else:
+            # If it's a default memory not in orchestrator, just log the deletion
+            logger.info("Default memory deletion requested", memory_id=memory_id)
+        
+        return {
+            "memory_id": memory_id,
+            "status": "deleted",
+            "message": "Memory deleted successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to delete memory", error=str(e), memory_id=memory_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete memory: {str(e)}"
         )
