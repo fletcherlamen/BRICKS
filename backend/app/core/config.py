@@ -57,7 +57,14 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "http://localhost:8000",
+        "http://64.227.99.111:3000",
+        "http://64.227.99.111:8000",
+        "https://64.227.99.111:3000",
+        "https://64.227.99.111:8000"
+    ]
     
     # Logging
     LOG_LEVEL: str = "INFO"

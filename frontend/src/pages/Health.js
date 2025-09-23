@@ -25,7 +25,7 @@ const Health = () => {
   const fetchHealthData = async () => {
     try {
       // Fetch UBIC v1.5 health data from API
-      const response = await fetch('http://localhost:8000/api/v1/health/');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/health/`);
       const ubicResponse = await response.json();
       
       // Transform UBIC response to expected format

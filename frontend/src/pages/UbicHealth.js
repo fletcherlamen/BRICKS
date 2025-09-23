@@ -31,11 +31,12 @@ const UbicHealth = () => {
   const fetchUbicData = async () => {
     try {
       // Fetch UBIC v1.5 endpoints
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       const [healthResponse, capabilitiesResponse, dependenciesResponse, stateResponse] = await Promise.all([
-        fetch('http://localhost:8000/api/v1/health/'),
-        fetch('http://localhost:8000/api/v1/health/capabilities'),
-        fetch('http://localhost:8000/api/v1/health/dependencies'),
-        fetch('http://localhost:8000/api/v1/health/state')
+        fetch(`${baseUrl}/api/v1/health/`),
+        fetch(`${baseUrl}/api/v1/health/capabilities`),
+        fetch(`${baseUrl}/api/v1/health/dependencies`),
+        fetch(`${baseUrl}/api/v1/health/state`)
       ]);
 
       const [healthData, capabilitiesData, dependenciesData, stateData] = await Promise.all([

@@ -45,7 +45,7 @@ const EnhancedMemory = () => {
 
   const fetchMemoryData = async () => {
     try {
-      let url = 'http://localhost:8000/api/v1/memory/';
+      let url = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`;
       const params = new URLSearchParams();
       
       if (selectedCategory) params.append('category', selectedCategory);
@@ -67,7 +67,7 @@ const EnhancedMemory = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/memory/categories');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/categories`);
       const data = await response.json();
       setCategories(data.categories || {});
     } catch (error) {
@@ -77,7 +77,7 @@ const EnhancedMemory = () => {
 
   const fetchTags = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/memory/tags');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/tags`);
       const data = await response.json();
       setAvailableTags(data.tags || {});
     } catch (error) {
@@ -100,7 +100,7 @@ const EnhancedMemory = () => {
       formData.append('importance_score', '0.7');
       formData.append('auto_extract', 'true');
 
-      const response = await fetch('http://localhost:8000/api/v1/memory/upload', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload`, {
         method: 'POST',
         body: formData
       });
@@ -136,7 +136,7 @@ const EnhancedMemory = () => {
       formData.append('tags', JSON.stringify(['text', 'large-content']));
       formData.append('importance_score', '0.6');
 
-      const response = await fetch('http://localhost:8000/api/v1/memory/upload-text', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload-text`, {
         method: 'POST',
         body: formData
       });
@@ -162,7 +162,7 @@ const EnhancedMemory = () => {
 
   const handleAddMemory = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/memory/', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

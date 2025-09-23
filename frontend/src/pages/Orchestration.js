@@ -38,7 +38,7 @@ const Orchestration = () => {
   const fetchRecentSessions = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/orchestration/sessions');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/orchestration/sessions`);
       const data = await response.json();
       
       if (response.ok) {
@@ -65,7 +65,7 @@ const Orchestration = () => {
 
     try {
       // Call the real backend API
-      const response = await fetch('http://localhost:8000/api/v1/orchestration/execute', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/orchestration/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
