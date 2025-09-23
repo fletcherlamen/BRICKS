@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake
 
 api_router = APIRouter()
 
@@ -39,4 +39,18 @@ api_router.include_router(
     orchestration.router,
     prefix="/orchestration",
     tags=["real-orchestration"]
+)
+
+# System Chat Interface (Milestone 1 Completion)
+api_router.include_router(
+    chat.router,
+    prefix="/chat",
+    tags=["system-chat"]
+)
+
+# BRICK-2 Handshake Stub (Milestone 1 Completion)
+api_router.include_router(
+    brick2_handshake.router,
+    prefix="/brick2",
+    tags=["brick2-integration"]
 )

@@ -6,6 +6,7 @@ import {
   CpuChipIcon,
   CubeIcon,
   CircleStackIcon,
+  ChatBubbleLeftRightIcon,
   WrenchScrewdriverIcon,
   Bars3Icon,
   XMarkIcon,
@@ -16,6 +17,7 @@ const navigation = [
   { name: 'Orchestration', href: '/orchestration', icon: CpuChipIcon },
   { name: 'BRICKS', href: '/bricks', icon: CubeIcon },
   { name: 'Memory', href: '/memory', icon: CircleStackIcon },
+  { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
   { name: 'Health', href: '/health', icon: WrenchScrewdriverIcon },
 ];
 
