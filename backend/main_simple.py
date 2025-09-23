@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import structlog
 from app.api.v1.api import api_router
 from app.models.ubic import UBICResponse, Status
+from app.core.config import settings
 from datetime import datetime
 
 # Configure structured logging
@@ -43,7 +44,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=["*"],
