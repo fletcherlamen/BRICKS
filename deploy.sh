@@ -56,8 +56,8 @@ JWT_SECRET_KEY=your-jwt-secret-key-change-in-production-$(date +%s)
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-# CORS Settings for VPS
-CORS_ORIGINS=["http://64.227.99.111:3000", "http://64.227.99.111:8000", "https://64.227.99.111:3000", "https://64.227.99.111:8000"]
+# CORS Settings for VPS (More permissive)
+CORS_ORIGINS=["http://localhost:3000", "http://localhost:8000", "http://64.227.99.111:3000", "http://64.227.99.111:8000", "https://64.227.99.111:3000", "https://64.227.99.111:8000", "http://64.227.99.111", "https://64.227.99.111", "*"]
 
 # Logging
 LOG_LEVEL=INFO
