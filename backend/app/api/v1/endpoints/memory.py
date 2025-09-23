@@ -73,28 +73,34 @@ class SearchRequest(BaseModel):
 
 @router.post("/", response_model=MemoryResponse)
 async def store_memory(memory: MemoryRequest):
-    """Store a new memory with enhanced organization"""
+    """Store a new memory with enhanced organization and real persistence"""
     
     try:
-        # Generate memory ID
-        memory_id = f"mem_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        # Import real orchestrator for memory persistence
+        from app.services.real_orchestrator import real_orchestrator
         
-        # In production, this would save to database via Mem0 service
-        logger.info("Stored new memory", 
-                   memory_id=memory_id, 
-                   type=memory.memory_type,
+        # Store memory using real orchestrator
+        memory_data = await real_orchestrator.store_memory(
+            content=memory.content,
+            category=memory.category,
+            tags=memory.tags,
+            importance_score=memory.importance_score
+        )
+        
+        logger.info("Memory stored successfully", 
+                   memory_id=memory_data["memory_id"],
                    category=memory.category,
                    tags=memory.tags)
         
         return MemoryResponse(
-            memory_id=memory_id,
-            content=memory.content,
+            memory_id=memory_data["memory_id"],
+            content=memory_data["content"],
             memory_type=memory.memory_type,
-            category=memory.category,
-            tags=memory.tags,
+            category=memory_data["category"],
+            tags=memory_data["tags"],
             source_type=memory.source_type,
-            importance_score=memory.importance_score,
-            timestamp=datetime.now().isoformat()
+            importance_score=memory_data["importance_score"],
+            timestamp=memory_data["created_at"]
         )
         
     except Exception as e:
@@ -152,11 +158,18 @@ async def upload_file(
         except json.JSONDecodeError:
             parsed_tags = [tags] if tags else []
         
-        # Generate memory ID
-        memory_id = f"file_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        # Store memory using real orchestrator
+        from app.services.real_orchestrator import real_orchestrator
         
-        logger.info("Uploaded file", 
-                   memory_id=memory_id,
+        memory_data = await real_orchestrator.store_memory(
+            content=extracted_content,
+            category=category,
+            tags=parsed_tags,
+            importance_score=importance_score
+        )
+        
+        logger.info("File uploaded and memory stored", 
+                   memory_id=memory_data["memory_id"],
                    filename=file.filename,
                    file_type=file_type,
                    file_size=file_size,
@@ -164,16 +177,16 @@ async def upload_file(
                    tags=parsed_tags)
         
         return MemoryResponse(
-            memory_id=memory_id,
-            content=extracted_content,
+            memory_id=memory_data["memory_id"],
+            content=memory_data["content"],
             memory_type="document",
-            category=category,
-            tags=parsed_tags,
+            category=memory_data["category"],
+            tags=memory_data["tags"],
             source_type=file_type,
             file_name=file.filename,
             file_size=file_size,
-            importance_score=importance_score,
-            timestamp=datetime.now().isoformat()
+            importance_score=memory_data["importance_score"],
+            timestamp=memory_data["created_at"]
         )
         
     except HTTPException:
@@ -217,24 +230,31 @@ async def upload_large_text(
         except json.JSONDecodeError:
             parsed_tags = [tags] if tags else []
         
-        # Generate memory ID
-        memory_id = f"text_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        # Store memory using real orchestrator
+        from app.services.real_orchestrator import real_orchestrator
         
-        logger.info("Uploaded large text", 
-                   memory_id=memory_id,
+        memory_data = await real_orchestrator.store_memory(
+            content=content,
+            category=category,
+            tags=parsed_tags,
+            importance_score=importance_score
+        )
+        
+        logger.info("Large text uploaded and memory stored", 
+                   memory_id=memory_data["memory_id"],
                    content_length=len(content),
                    category=category,
                    tags=parsed_tags)
         
         return MemoryResponse(
-            memory_id=memory_id,
-            content=content,
+            memory_id=memory_data["memory_id"],
+            content=memory_data["content"],
             memory_type="text",
-            category=category,
-            tags=parsed_tags,
+            category=memory_data["category"],
+            tags=memory_data["tags"],
             source_type="text",
-            importance_score=importance_score,
-            timestamp=datetime.now().isoformat()
+            importance_score=memory_data["importance_score"],
+            timestamp=memory_data["created_at"]
         )
         
     except HTTPException:
@@ -256,54 +276,36 @@ async def list_memories(
     limit: int = 50,
     offset: int = 0
 ):
-    """Get list of memories with enhanced filtering"""
+    """Get list of memories with enhanced filtering and real data"""
     
     try:
-        # Mock data - would query database in production
-        memories = [
-            {
-                "memory_id": "mem_001",
-                "content": "Church Kit Generator has high revenue potential",
-                "memory_type": "strategy",
-                "category": "business",
-                "importance_score": 0.9,
-                "tags": ["revenue", "strategy", "church-kit"],
-                "source_type": "text",
-                "created_at": datetime.now().isoformat()
-            },
-            {
-                "memory_id": "mem_002",
-                "content": "Mobile app development is a critical gap",
-                "memory_type": "gap",
-                "category": "technical",
-                "importance_score": 0.8,
-                "tags": ["gap", "mobile", "development"],
-                "source_type": "text",
-                "created_at": datetime.now().isoformat()
-            },
-            {
-                "memory_id": "file_001",
-                "content": "[PDF Content from business_plan.pdf]\n\nThis is mock extracted text from the PDF file.",
-                "memory_type": "document",
-                "category": "documents",
-                "importance_score": 0.7,
-                "tags": ["business-plan", "pdf", "planning"],
-                "source_type": "pdf",
-                "file_name": "business_plan.pdf",
-                "file_size": 245760,
-                "created_at": datetime.now().isoformat()
-            },
-            {
-                "memory_id": "text_001",
-                "content": "Large text content about market analysis and competitive landscape...",
-                "memory_type": "analysis",
-                "category": "research",
-                "importance_score": 0.6,
-                "tags": ["market-analysis", "competitive", "research"],
-                "source_type": "text",
-                "created_at": datetime.now().isoformat()
-            }
-        ]
+        # Get memories from real orchestrator
+        from app.services.real_orchestrator import real_orchestrator
+        memories = real_orchestrator.get_memories(limit=limit * 2)  # Get more for filtering
+        
+        # Add default memories if none exist
+        if not memories:
+            default_memories = [
+                {
+                    "memory_id": "mem_001",
+                    "content": "Church Kit Generator has high revenue potential",
+                    "category": "business",
+                    "importance_score": 0.9,
+                    "tags": ["revenue", "strategy", "church-kit"],
+                    "source_type": "text",
+                    "created_at": datetime.now().isoformat()
+                },
+                {
+                    "memory_id": "mem_002",
+                    "content": "Mobile app development is a critical gap",
+                    "category": "technical",
+                    "importance_score": 0.8,
+                    "tags": ["gap", "mobile", "development"],
+                    "source_type": "text",
+                    "created_at": datetime.now().isoformat()
+                }
+            ]
+            memories = default_memories
         
         # Apply filters
         filtered_memories = memories

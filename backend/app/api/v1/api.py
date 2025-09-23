@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration
 
 api_router = APIRouter()
 
@@ -32,4 +32,11 @@ api_router.include_router(
     memory.router,
     prefix="/memory",
     tags=["enhanced-memory"]
+)
+
+# Real Orchestration System (Client Requested)
+api_router.include_router(
+    orchestration.router,
+    prefix="/orchestration",
+    tags=["real-orchestration"]
 )

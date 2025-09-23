@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   PlayIcon,
@@ -14,6 +14,8 @@ const Orchestration = () => {
   const [activeTab, setActiveTab] = useState('execute');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState(null);
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     taskType: 'strategic_analysis',
     goal: '',
@@ -27,6 +29,30 @@ const Orchestration = () => {
     { value: 'gap_analysis', label: 'Gap Analysis' }
   ];
 
+  useEffect(() => {
+    if (activeTab === 'sessions') {
+      fetchRecentSessions();
+    }
+  }, [activeTab]);
+
+  const fetchRecentSessions = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/orchestration/sessions');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRecentSessions(data.sessions || []);
+      } else {
+        console.error('Failed to fetch sessions:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.goal.trim()) {
@@ -38,62 +64,57 @@ const Orchestration = () => {
     toast.loading('Executing orchestration...');
 
     try {
-      // Mock execution - in production this would call the API
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const mockResult = {
-        sessionId: `session_${Date.now()}`,
-        taskType: formData.taskType,
-        status: 'completed',
-        results: {
-          analysis: {
-            crewai: 'Strategic analysis completed using CrewAI multi-agent system',
-            multi_model: 'Multiple AI models provided diverse perspectives',
-            historical: 'Relevant historical context retrieved from memory'
-          },
-          recommendations: [
-            'Implement mobile application platform',
-            'Focus on API marketplace development',
-            'Optimize Church Kit Generator workflows'
-          ],
-          confidence: 0.92
+      // Call the real backend API
+      const response = await fetch('http://localhost:8000/api/v1/orchestration/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        timestamp: new Date().toISOString()
-      };
+        body: JSON.stringify({
+          task_type: formData.taskType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          goal: formData.goal,
+          context: formData.context ? { context: formData.context } : {}
+        })
+      });
 
-      setExecutionResults(mockResult);
-      toast.success('Orchestration completed successfully!');
+      const data = await response.json();
+      
+      if (response.ok && data.status === 'success') {
+        const result = {
+          sessionId: data.details.session_id,
+          runId: data.details.run_id,
+          taskType: data.details.task_type,
+          status: data.details.status,
+          confidence: data.details.confidence,
+          executionTimeMs: data.details.execution_time_ms,
+          results: {
+            analysis: data.details.results.analysis || {},
+            recommendations: data.details.results.analysis?.recommendations || [],
+            key_insights: data.details.results.analysis?.key_insights || [],
+            risk_assessment: data.details.results.analysis?.risk_assessment || {},
+            revenue_potential: data.details.results.analysis?.revenue_potential || {}
+          },
+          timestamp: data.details.timestamp
+        };
+
+        setExecutionResults(result);
+        toast.success('Orchestration completed successfully!');
+        
+        // Refresh sessions if we're on the sessions tab
+        if (activeTab === 'sessions') {
+          fetchRecentSessions();
+        }
+      } else {
+        throw new Error(data.message || 'Orchestration failed');
+      }
     } catch (error) {
-      toast.error('Orchestration failed');
+      toast.error('Orchestration failed: ' + error.message);
       console.error('Orchestration error:', error);
     } finally {
       setIsExecuting(false);
     }
   };
 
-  const recentSessions = [
-    {
-      id: 'session_001',
-      goal: 'Analyze Church Kit Generator optimization',
-      status: 'completed',
-      timestamp: '2 minutes ago',
-      duration: '2m 34s'
-    },
-    {
-      id: 'session_002',
-      goal: 'Identify revenue opportunities',
-      status: 'completed',
-      timestamp: '15 minutes ago',
-      duration: '1m 45s'
-    },
-    {
-      id: 'session_003',
-      goal: 'Strategic gap analysis',
-      status: 'running',
-      timestamp: '1 hour ago',
-      duration: '5m 12s'
-    }
-  ];
 
   return (
     <div className="space-y-6">
@@ -225,13 +246,23 @@ const Orchestration = () => {
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-600">Confidence:</span>
-                  <span className="text-sm text-gray-900">{(executionResults.results.confidence * 100).toFixed(1)}%</span>
+                  <span className="text-sm text-gray-900">{(executionResults.confidence * 100).toFixed(1)}%</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Run ID:</span>
+                  <span className="text-sm text-gray-900 font-mono">{executionResults.runId}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">Execution Time:</span>
+                  <span className="text-sm text-gray-900">{executionResults.executionTimeMs}ms</span>
                 </div>
 
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Recommendations:</h4>
                   <ul className="space-y-1">
-                    {executionResults.results.recommendations.map((rec, index) => (
+                    {executionResults.results.recommendations?.map((rec, index) => (
                       <li key={index} className="text-sm text-gray-600 flex items-start">
                         <CheckCircleIcon className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
                         {rec}
@@ -239,6 +270,20 @@ const Orchestration = () => {
                     ))}
                   </ul>
                 </div>
+
+                {executionResults.results.key_insights && executionResults.results.key_insights.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Key Insights:</h4>
+                    <ul className="space-y-1">
+                      {executionResults.results.key_insights.map((insight, index) => (
+                        <li key={index} className="flex items-start space-x-2">
+                          <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">{insight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -286,31 +331,45 @@ const Orchestration = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentSessions.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      {session.id}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {session.goal}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`status-indicator ${
-                        session.status === 'completed' ? 'status-healthy' :
-                        session.status === 'running' ? 'status-warning' :
-                        'status-danger'
-                      }`}>
-                        {session.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {session.duration}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {session.timestamp}
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                      Loading sessions...
                     </td>
                   </tr>
-                ))}
+                ) : recentSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                      No sessions found
+                    </td>
+                  </tr>
+                ) : (
+                  recentSessions.map((session) => (
+                    <tr key={session.session_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {session.session_id}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {session.goal}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`status-indicator ${
+                          session.status === 'completed' ? 'status-healthy' :
+                          session.status === 'running' ? 'status-warning' :
+                          'status-danger'
+                        }`}>
+                          {session.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {session.duration}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {session.time_ago}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
