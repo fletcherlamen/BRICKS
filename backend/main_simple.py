@@ -47,10 +47,9 @@ app = FastAPI(
 async def startup_event():
     """Initialize database on startup"""
     try:
-        # Temporarily disable database initialization due to model relationship issues
-        # from app.core.database import init_db
-        # await init_db()
-        print("⚠️ Database initialization temporarily disabled - using in-memory storage")
+        from app.core.database import init_db
+        await init_db()
+        print("✅ Database initialization completed")
     except Exception as e:
         print(f"⚠️ Database initialization failed: {e}")
         # Continue without database for now

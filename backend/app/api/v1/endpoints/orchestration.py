@@ -273,7 +273,7 @@ async def get_orchestration_sessions(
     """Get list of orchestration sessions with real history"""
     
     try:
-        sessions = orchestrator.get_session_history(limit=limit)
+        sessions = await orchestrator.get_session_history(limit=limit)
         
         # Format sessions for frontend
         formatted_sessions = []

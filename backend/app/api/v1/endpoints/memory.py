@@ -296,7 +296,7 @@ async def list_memories(
     try:
         # Get memories from real orchestrator
         from app.services.real_orchestrator import real_orchestrator
-        memories = real_orchestrator.get_memories(limit=limit * 2)  # Get more for filtering
+        memories = await real_orchestrator.get_memories(limit=limit * 2)  # Get more for filtering
         
         # Apply filters
         filtered_memories = memories
@@ -542,7 +542,7 @@ async def get_memory_stats():
         from app.services.real_orchestrator import real_orchestrator
         
         # Get real memory data
-        memories = real_orchestrator.get_memories()
+        memories = await real_orchestrator.get_memories()
         
         # Calculate real statistics
         total_memories = len(memories)

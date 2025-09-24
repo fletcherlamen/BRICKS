@@ -24,7 +24,7 @@ class OrchestrationSession(Base):
     completed_at = Column(DateTime(timezone=True))
     
     # Relationships
-    user = relationship("User", back_populates="orchestration_sessions")
+    # user = relationship("User", back_populates="orchestration_sessions")  # Temporarily disabled
     tasks = relationship("OrchestrationTask", back_populates="session")
 
 
