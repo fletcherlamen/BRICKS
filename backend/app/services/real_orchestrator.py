@@ -50,20 +50,24 @@ class RealOrchestrator:
     
     async def _get_db_session(self):
         """Get database session for VPS PostgreSQL operations"""
-        if self.db_session is None:
-            # Connect directly to VPS PostgreSQL database
+        try:
+            # Create a fresh session each time to avoid connection issues
             from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
             from sqlalchemy.orm import sessionmaker
             
             # VPS PostgreSQL connection string
             vps_database_url = "postgresql+asyncpg://user:password@64.227.99.111:5432/brick_orchestration"
-            engine = create_async_engine(vps_database_url, echo=False)
+            engine = create_async_engine(vps_database_url, echo=False, pool_pre_ping=True)
             async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-            self.db_session = async_session()
-        return self.db_session
+            db_session = async_session()
+            return db_session
+        except Exception as e:
+            logger.error("Failed to create database session", error=str(e))
+            raise e
     
     async def _save_session_to_db(self, session_data: Dict[str, Any]):
         """Save orchestration session to VPS PostgreSQL database"""
+        db = None
         try:
             db = await self._get_db_session()
             
@@ -87,9 +91,13 @@ class RealOrchestrator:
         except Exception as e:
             logger.error("Failed to save session to VPS database", error=str(e), session_id=session_data["session_id"])
             print(f"❌ Failed to save session to VPS database: {str(e)}")
+        finally:
+            if db:
+                await db.close()
     
     async def _get_sessions_from_db(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get orchestration sessions from VPS PostgreSQL database"""
+        db = None
         try:
             db = await self._get_db_session()
             
@@ -126,6 +134,9 @@ class RealOrchestrator:
             logger.error("Failed to get sessions from VPS database", error=str(e))
             print(f"❌ Failed to get sessions from VPS database: {str(e)}")
             return []
+        finally:
+            if db:
+                await db.close()
     
     async def _call_openai(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """Call OpenAI GPT-4 for real AI processing"""
