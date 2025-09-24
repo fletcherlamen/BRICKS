@@ -46,6 +46,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://brick_user:brick_password@postgres:5432/brick_orchestration
       - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=production
+      - DEBUG=false
     env_file:
       - .env
     ports:
@@ -80,6 +82,7 @@ services:
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
+      - PORT=3000
     volumes:
       - ./frontend:/app
       - /app/node_modules

@@ -85,17 +85,21 @@ EOF
 echo -e "${GREEN}✅ VPS environment file created${NC}"
 echo ""
 
+# Copy HTTP-only nginx config for initial deployment (no SSL required)
+echo -e "${YELLOW}Configuring Nginx for HTTP-only deployment...${NC}"
+cp nginx/nginx-http-only.conf nginx/nginx.conf
+
 # Stop existing containers
 echo -e "${YELLOW}Stopping existing containers...${NC}"
-docker-compose down --remove-orphans || true
+docker-compose -f docker-compose.yml -f docker-compose.vps.yml down --remove-orphans || true
 
 # Remove old images to force rebuild
 echo -e "${YELLOW}Removing old images...${NC}"
-docker-compose down --rmi all --volumes --remove-orphans || true
+docker-compose -f docker-compose.yml -f docker-compose.vps.yml down --rmi all --volumes --remove-orphans || true
 
 # Build and start services
 echo -e "${YELLOW}Building and starting services...${NC}"
-docker-compose up --build -d
+docker-compose -f docker-compose.yml -f docker-compose.vps.yml up --build -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
@@ -126,21 +130,21 @@ fi
 
 # Check database health
 echo "Checking database health..."
-if docker-compose exec postgres pg_isready -U brick_user -d brick_orchestration >/dev/null 2>&1; then
+if docker-compose -f docker-compose.yml -f docker-compose.vps.yml exec postgres pg_isready -U brick_user -d brick_orchestration >/dev/null 2>&1; then
     echo -e "${GREEN}✅ Database is healthy${NC}"
 else
     echo -e "${RED}❌ Database health check failed${NC}"
-    docker-compose logs postgres
+    docker-compose -f docker-compose.yml -f docker-compose.vps.yml logs postgres
     exit 1
 fi
 
 # Check Redis health
 echo "Checking Redis health..."
-if docker-compose exec redis redis-cli ping >/dev/null 2>&1; then
+if docker-compose -f docker-compose.yml -f docker-compose.vps.yml exec redis redis-cli ping >/dev/null 2>&1; then
     echo -e "${GREEN}✅ Redis is healthy${NC}"
 else
     echo -e "${RED}❌ Redis health check failed${NC}"
-    docker-compose logs redis
+    docker-compose -f docker-compose.yml -f docker-compose.vps.yml logs redis
     exit 1
 fi
 
@@ -174,7 +178,7 @@ echo ""
 
 # Display container status
 echo -e "${BLUE}📋 CONTAINER STATUS:${NC}"
-docker-compose ps
+docker-compose -f docker-compose.yml -f docker-compose.vps.yml ps
 
 echo ""
 echo -e "${YELLOW}⚠️  IMPORTANT NOTES:${NC}"

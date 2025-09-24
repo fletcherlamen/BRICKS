@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS - More permissive for VPS deployment
+    # CORS - VPS deployment configuration
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000", 
         "http://localhost:8000",
@@ -68,7 +68,9 @@ class Settings(BaseSettings):
         "https://64.227.99.111:8000",
         "http://64.227.99.111",
         "https://64.227.99.111",
-        "*"  # Allow all origins for development/testing
+        "http://64.227.99.111:80",
+        "https://64.227.99.111:443",
+        "*"  # Allow all origins for VPS deployment
     ]
     
     # Logging

@@ -88,6 +88,7 @@ services:
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
+      - PORT=3000
     volumes:
       - ./frontend:/app
       - /app/node_modules
