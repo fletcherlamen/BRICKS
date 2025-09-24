@@ -16,14 +16,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# VPS Configuration
+# VPS Production Configuration
 VPS_IP="64.227.99.111"
-VPS_API_URL="http://${VPS_IP}:8000"
-VPS_FRONTEND_URL="http://${VPS_IP}:3000"
+API_URL="http://64.227.99.111:8000"
+FRONTEND_URL="http://64.227.99.111:3000"
 
 echo -e "${BLUE}VPS IP: ${VPS_IP}${NC}"
-echo -e "${BLUE}API URL: ${VPS_API_URL}${NC}"
-echo -e "${BLUE}Frontend URL: ${VPS_FRONTEND_URL}${NC}"
+echo -e "${BLUE}API URL: ${API_URL}${NC}"
+echo -e "${BLUE}Frontend URL: ${FRONTEND_URL}${NC}"
 echo ""
 
 # Function to check if command exists
@@ -51,8 +51,8 @@ echo ""
 echo -e "${YELLOW}Creating VPS environment configuration...${NC}"
 
 cat > .env << EOF
-# VPS Deployment Environment Variables
-VPS_API_URL=${VPS_API_URL}
+# VPS Production Environment Variables
+REACT_APP_API_URL=${API_URL}
 ENVIRONMENT=production
 
 # Database Configuration
@@ -70,16 +70,16 @@ ANTHROPIC_API_KEY=your-anthropic-api-key-here
 GOOGLE_GEMINI_API_KEY=your-google-gemini-api-key-here
 
 # Security (Change these in production)
-SECRET_KEY=your-production-secret-key-change-this
-JWT_SECRET_KEY=your-production-jwt-secret-key-change-this
+SECRET_KEY=your-development-secret-key
+JWT_SECRET_KEY=your-development-jwt-secret-key
 
 # Application Settings
 DEBUG=false
 LOG_LEVEL=INFO
 ENABLE_METRICS=true
 
-# CORS Origins (VPS specific)
-CORS_ORIGINS=http://${VPS_IP}:3000,http://${VPS_IP}:8000,https://${VPS_IP}:3000,https://${VPS_IP}:8000,http://${VPS_IP},https://${VPS_IP}
+# CORS Origins (VPS production)
+CORS_ORIGINS=http://64.227.99.111:3000,http://64.227.99.111:8000,http://64.227.99.111:80,http://64.227.99.111:443,http://your-domain.com,https://your-domain.com,*
 EOF
 
 echo -e "${GREEN}✅ VPS environment file created${NC}"
@@ -154,24 +154,25 @@ echo ""
 
 # Display service URLs
 echo -e "${BLUE}📊 SERVICE URLs:${NC}"
-echo -e "${BLUE}Frontend: http://${VPS_IP}:3000${NC}"
-echo -e "${BLUE}Backend API: http://${VPS_IP}:8000${NC}"
-echo -e "${BLUE}API Documentation: http://${VPS_IP}:8000/docs${NC}"
-echo -e "${BLUE}Health Check: http://${VPS_IP}:8000/health${NC}"
+echo -e "${BLUE}Frontend: http://64.227.99.111:3000${NC}"
+echo -e "${BLUE}Backend API: http://64.227.99.111:8000${NC}"
+echo -e "${BLUE}API Documentation: http://64.227.99.111:8000/docs${NC}"
+echo -e "${BLUE}Health Check: http://64.227.99.111:8000/health${NC}"
+echo -e "${BLUE}Nginx Proxy: http://64.227.99.111:80${NC}"
 echo ""
 
 # Display test commands
 echo -e "${BLUE}🧪 TEST COMMANDS:${NC}"
 echo "Test API health:"
-echo "curl http://${VPS_IP}:8000/health"
+echo "curl http://64.227.99.111:8000/health"
 echo ""
 echo "Test strategic analysis:"
-echo "curl -X POST http://${VPS_IP}:8000/api/v1/orchestration/strategic-analysis \\"
+echo "curl -X POST http://64.227.99.111:8000/api/v1/orchestration/strategic-analysis \\"
 echo "  -H 'Content-Type: application/json' \\"
 echo "  -d '{\"task_type\": \"strategic_analysis\", \"goal\": \"Test VPS deployment\"}'"
 echo ""
 echo "Test file upload:"
-echo "curl -X POST http://${VPS_IP}:8000/api/v1/memory/upload \\"
+echo "curl -X POST http://64.227.99.111:8000/api/v1/memory/upload \\"
 echo "  -F 'file=@test.txt' \\"
 echo "  -F 'category=test'"
 echo ""
@@ -182,12 +183,14 @@ docker-compose -f docker-compose.yml -f docker-compose.vps.yml ps
 
 echo ""
 echo -e "${YELLOW}⚠️  IMPORTANT NOTES:${NC}"
-echo "1. Make sure your VPS firewall allows ports 3000 and 8000"
-echo "2. Add your actual AI API keys to the .env file"
-echo "3. Change the SECRET_KEY and JWT_SECRET_KEY in production"
-echo "4. Consider setting up SSL certificates for HTTPS"
-echo "5. Monitor logs with: docker-compose logs -f [service_name]"
+echo "1. VPS IP address configured: 64.227.99.111"
+echo "2. Configure your domain DNS to point to your VPS IP"
+echo "3. Make sure your VPS firewall allows ports 80, 443, 3000, and 8000"
+echo "4. Add your actual AI API keys to the .env file"
+echo "5. Change the SECRET_KEY and JWT_SECRET_KEY in production"
+echo "6. Configure SSL certificates for HTTPS (Let's Encrypt recommended)"
+echo "7. Monitor logs with: docker-compose logs -f [service_name]"
 echo ""
 
-echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
-echo -e "${GREEN}🌐 Your application is now running on VPS ${VPS_IP}${NC}"
+echo -e "${GREEN}✅ VPS deployment configuration completed successfully!${NC}"
+echo -e "${GREEN}🌐 Your application is configured for VPS deployment${NC}"

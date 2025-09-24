@@ -915,23 +915,123 @@ structlog>=23.0.0
             return {}
     
     def _get_template_analysis(self, goal: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Fallback template analysis when AI is not available"""
+        """Intelligent template analysis based on goal keywords and context"""
         goal_lower = goal.lower()
         
-        # Basic template responses based on keywords
-        if "mobile" in goal_lower or "app" in goal_lower:
+        # BRICK Development specific analysis (check first to avoid conflicts)
+        if any(word in goal_lower for word in ["brick", "test brick", "brick development", "brick orchestration"]):
             return {
                 "insights": [
-                    "Mobile app development requires cross-platform considerations",
-                    "User experience design is critical for mobile success",
-                    "App store optimization affects discoverability and downloads"
+                    "BRICK development requires modular architecture for reusability",
+                    "Automated testing frameworks are essential for BRICK reliability",
+                    "BRICK marketplace distribution maximizes adoption and revenue potential",
+                    "Version control and dependency management are critical for BRICK ecosystems",
+                    "Performance optimization across different deployment environments is key"
+                ],
+                "recommendations": [
+                    "Design modular BRICK architecture with clear separation of concerns",
+                    "Implement comprehensive automated testing framework with CI/CD integration",
+                    "Create BRICK marketplace platform for distribution and monetization",
+                    "Develop standardized BRICK packaging and deployment mechanisms",
+                    "Establish BRICK performance benchmarking and optimization tools",
+                    "Build community-driven BRICK documentation and support system",
+                    "Implement BRICK versioning and backward compatibility management"
+                ],
+                "risks": {
+                    "high_risk": ["Complex dependency management", "BRICK interoperability challenges"],
+                    "medium_risk": ["Performance optimization across platforms", "Community adoption and engagement"],
+                    "low_risk": ["Documentation maintenance", "Version compatibility testing"]
+                },
+                "revenue_potential": {
+                    "brick_development": 180000,
+                    "marketplace_platform": 200000,
+                    "testing_framework": 100000,
+                    "consulting_services": 75000
+                }
+            }
+        
+        # AI Orchestration specific analysis
+        elif any(word in goal_lower for word in ["orchestrate", "orchestration", "ai intelligence", "ai systems"]):
+            return {
+                "insights": [
+                    "AI orchestration requires sophisticated multi-agent coordination protocols",
+                    "Real-time communication between AI systems is critical for success",
+                    "Orchestration platforms need robust error handling and fallback mechanisms",
+                    "Performance monitoring across multiple AI services is essential",
+                    "Context-aware decision making improves orchestration effectiveness"
+                ],
+                "recommendations": [
+                    "Implement multi-agent coordination framework with event-driven architecture",
+                    "Deploy real-time monitoring dashboard for AI system health and performance",
+                    "Create intelligent routing system to distribute tasks optimally",
+                    "Establish comprehensive logging and analytics for orchestration insights",
+                    "Develop automated scaling mechanisms based on workload demands",
+                    "Implement circuit breakers and retry logic for resilient operations",
+                    "Create standardized API interfaces for seamless AI system integration"
+                ],
+                "risks": {
+                    "high_risk": ["System complexity leading to cascading failures", "AI service dependencies causing bottlenecks"],
+                    "medium_risk": ["Performance degradation under high load", "Integration challenges with legacy systems"],
+                    "low_risk": ["Monitoring overhead", "Documentation maintenance"]
+                },
+                "revenue_potential": {
+                    "orchestration_platform": 250000,
+                    "monitoring_services": 75000,
+                    "integration_consulting": 125000,
+                    "ongoing_support": 50000
+                }
+            }
+        
+        # Strategic Analysis specific
+        elif any(word in goal_lower for word in ["strategic", "analysis", "strategy", "business intelligence"]):
+            return {
+                "insights": [
+                    "Strategic analysis requires comprehensive data integration from multiple sources",
+                    "Real-time analytics capabilities enable proactive decision making",
+                    "Market intelligence and competitive analysis drive strategic advantage",
+                    "Stakeholder alignment is critical for strategy implementation success",
+                    "Performance metrics and KPIs must be clearly defined and measurable"
+                ],
+                "recommendations": [
+                    "Implement comprehensive data integration platform for strategic insights",
+                    "Deploy real-time analytics dashboard with predictive capabilities",
+                    "Establish competitive intelligence gathering and analysis processes",
+                    "Create stakeholder communication and alignment framework",
+                    "Develop strategic roadmap with clear milestones and success metrics",
+                    "Build scenario planning and risk assessment capabilities",
+                    "Implement continuous monitoring and strategy adjustment mechanisms"
+                ],
+                "risks": {
+                    "high_risk": ["Data quality and integration challenges", "Market volatility affecting strategy"],
+                    "medium_risk": ["Stakeholder resistance to change", "Resource allocation complexity"],
+                    "low_risk": ["Reporting overhead", "Strategy documentation maintenance"]
+                },
+                "revenue_potential": {
+                    "strategic_consulting": 150000,
+                    "analytics_platform": 120000,
+                    "market_intelligence": 80000,
+                    "implementation_services": 100000
+                }
+            }
+        
+        # Mobile App Development
+        elif any(word in goal_lower for word in ["mobile", "app", "ios", "android"]):
+            return {
+                "insights": [
+                    "Mobile app development requires cross-platform considerations for market reach",
+                    "User experience design is critical for mobile app success and retention",
+                    "App store optimization affects discoverability and download conversion",
+                    "Performance optimization across different devices and networks is essential",
+                    "Security and privacy compliance are increasingly important for mobile apps"
                 ],
                 "recommendations": [
                     "Choose appropriate development framework (React Native, Flutter, or native)",
-                    "Implement comprehensive testing strategy",
-                    "Plan for app store submission and review process",
-                    "Design for offline functionality",
-                    "Implement proper security measures"
+                    "Implement comprehensive testing strategy across multiple devices",
+                    "Plan for app store submission and review process optimization",
+                    "Design for offline functionality and progressive web app capabilities",
+                    "Implement proper security measures and privacy protection",
+                    "Create user onboarding and engagement strategies",
+                    "Establish analytics and crash reporting for continuous improvement"
                 ],
                 "risks": {
                     "high_risk": ["Platform-specific development challenges", "App store approval delays"],
@@ -941,59 +1041,186 @@ structlog>=23.0.0
                 "revenue_potential": {
                     "app_development": 150000,
                     "maintenance_services": 50000,
-                    "feature_enhancements": 75000
+                    "feature_enhancements": 75000,
+                    "app_store_optimization": 25000
                 }
             }
-        elif "authentication" in goal_lower or "auth" in goal_lower:
+        
+        # Authentication and Security
+        elif any(word in goal_lower for word in ["authentication", "auth", "security", "jwt", "login"]):
             return {
                 "insights": [
-                    "Authentication systems are critical security components",
-                    "Multi-factor authentication improves security posture",
-                    "JWT tokens provide stateless authentication benefits"
+                    "Authentication systems are critical security components requiring robust design",
+                    "Multi-factor authentication significantly improves security posture",
+                    "JWT tokens provide stateless authentication benefits for scalable systems",
+                    "Password security and user session management are fundamental requirements",
+                    "Compliance with security standards (GDPR, SOC2) is increasingly important"
                 ],
                 "recommendations": [
-                    "Implement JWT-based authentication with proper expiration",
-                    "Add multi-factor authentication support",
-                    "Use secure password hashing (bcrypt, Argon2)",
-                    "Implement role-based access control",
-                    "Add session management and logout functionality"
+                    "Implement JWT-based authentication with proper token expiration",
+                    "Add multi-factor authentication support with backup methods",
+                    "Use secure password hashing (bcrypt, Argon2) with salt",
+                    "Implement role-based access control (RBAC) with granular permissions",
+                    "Add session management with secure logout and token revocation",
+                    "Create user account recovery and password reset mechanisms",
+                    "Establish security monitoring and anomaly detection systems"
                 ],
                 "risks": {
-                    "high_risk": ["Security vulnerabilities", "Data breach potential"],
+                    "high_risk": ["Security vulnerabilities and data breaches", "Authentication bypass attacks"],
                     "medium_risk": ["User experience complexity", "Integration challenges"],
                     "low_risk": ["Performance overhead", "Token management complexity"]
                 },
                 "revenue_potential": {
                     "auth_development": 80000,
                     "security_audit": 25000,
-                    "ongoing_maintenance": 30000
+                    "ongoing_maintenance": 30000,
+                    "compliance_consulting": 45000
                 }
             }
-        else:
-            # Generic template
+        
+        # E-commerce and Revenue Optimization
+        elif any(word in goal_lower for word in ["ecommerce", "e-commerce", "revenue", "sales", "commerce"]):
             return {
                 "insights": [
-                    f"Strategic approach required for: {goal}",
-                    "Implementation requires careful planning and execution",
-                    "Success metrics should be defined upfront"
+                    "E-commerce success depends on user experience and conversion optimization",
+                    "Personalization and recommendation engines drive revenue growth",
+                    "Mobile commerce is increasingly important for market reach",
+                    "Payment processing security and fraud prevention are critical",
+                    "Inventory management and supply chain optimization impact profitability"
                 ],
                 "recommendations": [
-                    f"Develop comprehensive strategy for: {goal}",
-                    "Implement systematic approach to goal achievement",
-                    "Establish metrics and monitoring for success tracking",
-                    "Plan for iterative improvement and optimization"
+                    "Implement conversion rate optimization (CRO) strategies",
+                    "Deploy personalization engine for product recommendations",
+                    "Optimize mobile commerce experience and checkout process",
+                    "Establish robust payment processing with fraud detection",
+                    "Create inventory management and demand forecasting systems",
+                    "Implement customer analytics and behavioral tracking",
+                    "Develop loyalty programs and customer retention strategies"
                 ],
                 "risks": {
-                    "high_risk": ["Strategic complexity", "Resource allocation challenges"],
-                    "medium_risk": ["Implementation timeline", "Stakeholder alignment"],
-                    "low_risk": ["Monitoring overhead", "Documentation requirements"]
+                    "high_risk": ["Payment security vulnerabilities", "Inventory management challenges"],
+                    "medium_risk": ["Competition and market saturation", "Customer acquisition costs"],
+                    "low_risk": ["Feature complexity", "Analytics overhead"]
                 },
                 "revenue_potential": {
-                    "strategic_development": 100000,
-                    "implementation_services": 75000,
-                    "monitoring_systems": 25000
+                    "ecommerce_platform": 200000,
+                    "personalization_engine": 100000,
+                    "payment_processing": 75000,
+                    "analytics_platform": 50000
                 }
             }
+        
+        # Default intelligent analysis for any other goal
+        else:
+            # Extract key concepts from the goal
+            goal_words = goal_lower.split()
+            domain_keywords = {
+                "ai": ["artificial intelligence", "machine learning", "automation", "intelligent"],
+                "data": ["data", "analytics", "insights", "information", "database"],
+                "web": ["web", "website", "online", "digital", "internet"],
+                "business": ["business", "company", "enterprise", "organization", "corporate"],
+                "development": ["development", "coding", "programming", "software", "application"]
+            }
+            
+            # Determine the primary domain
+            primary_domain = "general"
+            for domain, keywords in domain_keywords.items():
+                if any(keyword in goal_lower for keyword in keywords):
+                    primary_domain = domain
+                    break
+            
+            # Generate domain-specific analysis
+            if primary_domain == "ai":
+                return {
+                    "insights": [
+                        f"AI implementation for '{goal}' requires careful algorithm selection and data preparation",
+                        "Model performance monitoring and continuous improvement are essential",
+                        "Ethical AI considerations and bias mitigation must be addressed",
+                        "Integration with existing systems requires robust API design",
+                        "Scalability planning is critical for AI system success"
+                    ],
+                    "recommendations": [
+                        f"Develop AI strategy specifically tailored for: {goal}",
+                        "Implement comprehensive data pipeline and preprocessing",
+                        "Create model training and validation framework",
+                        "Establish performance monitoring and alerting systems",
+                        "Design API interfaces for seamless integration",
+                        "Plan for model versioning and deployment strategies",
+                        "Address ethical considerations and compliance requirements"
+                    ],
+                    "risks": {
+                        "high_risk": ["Model accuracy and reliability", "Data quality and bias issues"],
+                        "medium_risk": ["Integration complexity", "Performance scalability"],
+                        "low_risk": ["Documentation maintenance", "Monitoring overhead"]
+                    },
+                    "revenue_potential": {
+                        "ai_development": 180000,
+                        "data_pipeline": 100000,
+                        "model_optimization": 75000,
+                        "integration_services": 60000
+                    }
+                }
+            elif primary_domain == "data":
+                return {
+                    "insights": [
+                        f"Data strategy for '{goal}' requires comprehensive data governance",
+                        "Real-time processing capabilities enable timely decision making",
+                        "Data quality and consistency are fundamental to success",
+                        "Privacy and security compliance are increasingly important",
+                        "Visualization and reporting capabilities drive user adoption"
+                    ],
+                    "recommendations": [
+                        f"Design comprehensive data architecture for: {goal}",
+                        "Implement data quality monitoring and validation processes",
+                        "Create real-time data processing and analytics pipeline",
+                        "Establish data governance and compliance framework",
+                        "Develop interactive dashboards and reporting tools",
+                        "Plan for data backup, recovery, and disaster management",
+                        "Create data access controls and security measures"
+                    ],
+                    "risks": {
+                        "high_risk": ["Data quality and consistency issues", "Privacy and security breaches"],
+                        "medium_risk": ["Performance and scalability challenges", "Integration complexity"],
+                        "low_risk": ["Reporting overhead", "Data maintenance"]
+                    },
+                    "revenue_potential": {
+                        "data_platform": 160000,
+                        "analytics_services": 90000,
+                        "visualization_tools": 60000,
+                        "consulting": 70000
+                    }
+                }
+            else:
+                # General intelligent analysis
+                return {
+                    "insights": [
+                        f"Successful implementation of '{goal}' requires comprehensive planning and stakeholder alignment",
+                        "Clear success metrics and KPIs are essential for measuring progress",
+                        "Risk assessment and mitigation strategies must be established early",
+                        "Resource allocation and timeline management are critical success factors",
+                        "Continuous monitoring and adaptation improve implementation outcomes"
+                    ],
+                    "recommendations": [
+                        f"Develop detailed implementation strategy for: {goal}",
+                        "Establish clear project milestones and success criteria",
+                        "Create comprehensive risk management and mitigation plan",
+                        "Implement project monitoring and progress tracking systems",
+                        "Plan for stakeholder communication and change management",
+                        "Design feedback loops for continuous improvement",
+                        "Establish post-implementation support and maintenance procedures"
+                    ],
+                    "risks": {
+                        "high_risk": ["Project scope and complexity challenges", "Resource allocation difficulties"],
+                        "medium_risk": ["Timeline and deadline pressures", "Stakeholder alignment issues"],
+                        "low_risk": ["Documentation requirements", "Monitoring overhead"]
+                    },
+                    "revenue_potential": {
+                        "project_implementation": 120000,
+                        "consulting_services": 80000,
+                        "support_maintenance": 40000,
+                        "training_documentation": 30000
+                    }
+                }
 
 
 # Global orchestrator instance

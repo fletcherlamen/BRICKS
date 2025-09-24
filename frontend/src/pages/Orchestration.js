@@ -166,6 +166,7 @@ const Orchestration = () => {
       });
 
       const data = await response.json();
+      console.log('Orchestration API response:', data);
       
       if (response.ok && data.status === 'success') {
         const result = {
@@ -193,6 +194,7 @@ const Orchestration = () => {
           fetchRecentSessions();
         }
       } else {
+        console.error('Orchestration response:', data);
         throw new Error(data.message || 'Orchestration failed');
       }
     } catch (error) {

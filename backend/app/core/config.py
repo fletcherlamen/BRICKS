@@ -56,20 +56,22 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS - VPS deployment configuration
+    # CORS - VPS production configuration
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000", 
+        "http://localhost:3000",  # Keep localhost for development
         "http://localhost:8000",
-        "http://localhost:3001",
-        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+        # VPS IP addresses
         "http://64.227.99.111:3000",
-        "http://64.227.99.111:8000",
-        "https://64.227.99.111:3000",
-        "https://64.227.99.111:8000",
-        "http://64.227.99.111",
-        "https://64.227.99.111",
+        "http://64.227.99.111:8000", 
         "http://64.227.99.111:80",
-        "https://64.227.99.111:443",
+        "http://64.227.99.111:443",
+        # Domain names (replace with your actual domain)
+        "http://your-domain.com",
+        "https://your-domain.com",
+        "http://www.your-domain.com", 
+        "https://www.your-domain.com",
         "*"  # Allow all origins for VPS deployment
     ]
     

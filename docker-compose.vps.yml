@@ -78,13 +78,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_API_URL=${VPS_API_URL:-http://64.227.99.111:8000}
+        - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
         - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
     container_name: brick_orchestration_frontend
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=${VPS_API_URL:-http://64.227.99.111:8000}
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
