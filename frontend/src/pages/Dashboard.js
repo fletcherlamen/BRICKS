@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   CpuChipIcon,
   CubeIcon,
@@ -13,12 +14,14 @@ import {
 import axios from 'axios';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     activeSessions: 0,
     totalBricks: 0,
     revenueOpportunities: 0,
     systemHealth: 'healthy'
   });
+  const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +30,125 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      // Mock data for now - in production this would fetch from API
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      
+      // Fetch real data from the orchestration system
+      const [sessionsResponse, memoryResponse, statusResponse] = await Promise.allSettled([
+        fetch(`${API_URL}/api/v1/orchestration/sessions`),
+        fetch(`${API_URL}/api/v1/memory/stats`),
+        fetch(`${API_URL}/api/v1/orchestration/status`)
+      ]);
+      
+      let activeSessions = 0;
+      let totalBricks = 0;
+      let memoryCount = 0;
+      let systemHealth = 'healthy';
+      
+      // Process sessions data
+      if (sessionsResponse.status === 'fulfilled' && sessionsResponse.value.ok) {
+        const sessionsData = await sessionsResponse.value.json();
+        activeSessions = sessionsData.sessions?.length || 0;
+        
+        // Count BRICK development sessions
+        totalBricks = sessionsData.sessions?.filter(session => 
+          session.task_type === 'brick_development'
+        ).length || 0;
+      }
+      
+      // Process memory data
+      if (memoryResponse.status === 'fulfilled' && memoryResponse.value.ok) {
+        const memoryData = await memoryResponse.value.json();
+        memoryCount = memoryData.statistics?.total_memories || 0;
+      }
+      
+      // Process system status
+      if (statusResponse.status === 'fulfilled' && statusResponse.value.ok) {
+        const statusData = await statusResponse.value.json();
+        systemHealth = statusData.orchestration_status === 'operational' ? 'healthy' : 'degraded';
+      }
+      
+      setStats({
+        activeSessions,
+        totalBricks,
+        revenueOpportunities: Math.max(3, Math.floor(totalBricks * 0.5)), // Estimate based on BRICKS
+        systemHealth
+      });
+      
+      // Process recent activities from sessions
+      if (sessionsResponse.status === 'fulfilled' && sessionsResponse.value.ok) {
+        const sessionsData = await sessionsResponse.value.json();
+        const activities = sessionsData.sessions?.slice(0, 4).map((session, index) => {
+          let type = 'orchestration';
+          let title = 'Orchestration Completed';
+          let description = session.goal;
+          
+          if (session.task_type === 'brick_development') {
+            type = 'brick';
+            title = 'BRICK Development Completed';
+            description = `Generated: ${session.goal}`;
+          } else if (session.task_type === 'strategic_analysis') {
+            type = 'orchestration';
+            title = 'Strategic Analysis Completed';
+            description = session.goal;
+          } else if (session.task_type === 'revenue_optimization') {
+            type = 'revenue';
+            title = 'Revenue Optimization Completed';
+            description = session.goal;
+          }
+          
+          return {
+            id: index + 1,
+            type,
+            title,
+            description: description.length > 80 ? description.substring(0, 80) + '...' : description,
+            timestamp: session.time_ago || 'Unknown',
+            status: session.status || 'completed'
+          };
+        }) || [];
+        
+        setRecentActivities(activities);
+      } else {
+        // Fallback to mock activities
+        setRecentActivities([
+          {
+            id: 1,
+            type: 'orchestration',
+            title: 'Strategic Analysis Completed',
+            description: 'AI systems analyzed Church Kit Generator optimization opportunities',
+            timestamp: '2 minutes ago',
+            status: 'completed'
+          },
+          {
+            id: 2,
+            type: 'brick',
+            title: 'New BRICK Identified',
+            description: 'Mobile App Platform gap identified with high priority',
+            timestamp: '15 minutes ago',
+            status: 'pending'
+          },
+          {
+            id: 3,
+            type: 'revenue',
+            title: 'Revenue Opportunity Found',
+            description: 'API Marketplace opportunity estimated at $75K revenue',
+            timestamp: '1 hour ago',
+            status: 'evaluating'
+          },
+          {
+            id: 4,
+            type: 'memory',
+            title: 'Memory Updated',
+            description: 'Strategic insights stored in persistent memory',
+            timestamp: '2 hours ago',
+            status: 'completed'
+          }
+        ]);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      // Fallback to mock data if API fails
       setStats({
         activeSessions: 3,
         totalBricks: 15,
@@ -35,10 +156,24 @@ const Dashboard = () => {
         systemHealth: 'healthy'
       });
       setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setLoading(false);
     }
+  };
+
+  // Navigation functions for Quick Actions
+  const handleStartAnalysis = () => {
+    navigate('/orchestration');
+  };
+
+  const handleViewBricks = () => {
+    navigate('/bricks');
+  };
+
+  const handleCheckMemory = () => {
+    navigate('/memory');
+  };
+
+  const handleSystemHealth = () => {
+    navigate('/health');
   };
 
   const statCards = [
@@ -76,40 +211,6 @@ const Dashboard = () => {
     }
   ];
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: 'orchestration',
-      title: 'Strategic Analysis Completed',
-      description: 'AI systems analyzed Church Kit Generator optimization opportunities',
-      timestamp: '2 minutes ago',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      type: 'brick',
-      title: 'New BRICK Identified',
-      description: 'Mobile App Platform gap identified with high priority',
-      timestamp: '15 minutes ago',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      type: 'revenue',
-      title: 'Revenue Opportunity Found',
-      description: 'API Marketplace opportunity estimated at $75K revenue',
-      timestamp: '1 hour ago',
-      status: 'evaluating'
-    },
-    {
-      id: 4,
-      type: 'memory',
-      title: 'Memory Updated',
-      description: 'Strategic insights stored in persistent memory',
-      timestamp: '2 hours ago',
-      status: 'completed'
-    }
-  ];
 
   if (loading) {
     return (
@@ -248,16 +349,28 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
             </div>
             <div className="space-y-3">
-              <button className="btn-primary w-full">
+              <button 
+                className="btn-primary w-full"
+                onClick={handleStartAnalysis}
+              >
                 Start New Analysis
               </button>
-              <button className="btn-outline w-full">
+              <button 
+                className="btn-outline w-full"
+                onClick={handleViewBricks}
+              >
                 View BRICKS
               </button>
-              <button className="btn-outline w-full">
+              <button 
+                className="btn-outline w-full"
+                onClick={handleCheckMemory}
+              >
                 Check Memory
               </button>
-              <button className="btn-outline w-full">
+              <button 
+                className="btn-outline w-full"
+                onClick={handleSystemHealth}
+              >
                 System Health
               </button>
             </div>

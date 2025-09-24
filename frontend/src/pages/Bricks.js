@@ -23,45 +23,60 @@ const Bricks = () => {
 
   const fetchBrickData = async () => {
     try {
-      // Mock data - in production this would fetch from API
-      setBricks([
-        {
-          id: 'brick_001',
-          name: 'Church Kit Generator API',
-          description: 'Automated legal formation services for churches and religious organizations',
-          category: 'automation',
-          status: 'production',
-          priority: 8,
-          revenue_potential: 15000,
-          complexity: 7,
-          estimated_hours: 120,
-          actual_hours: 115
-        },
-        {
-          id: 'brick_002',
-          name: 'Global Sky AI Optimizer',
-          description: 'Business performance optimization and analytics platform',
-          category: 'analysis',
-          status: 'development',
-          priority: 7,
-          revenue_potential: 25000,
-          complexity: 8,
-          estimated_hours: 160,
-          actual_hours: 90
-        },
-        {
-          id: 'brick_003',
-          name: 'Treasury Management System',
-          description: 'Automated yield optimization and financial management',
-          category: 'automation',
-          status: 'testing',
-          priority: 6,
-          revenue_potential: 20000,
-          complexity: 6,
-          estimated_hours: 80,
-          actual_hours: 75
-        }
-      ]);
+      // Fetch real BRICK development data from orchestration sessions
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/orchestration/sessions`);
+      const data = await response.json();
+      
+      // Process orchestration sessions to show BRICK development progress
+      const brickSessions = data.sessions.filter(session => session.task_type === 'brick_development');
+      
+      const processedBricks = brickSessions.map((session, index) => {
+        const developmentPlan = session.results?.development_plan || {};
+        const generatedArtifacts = session.results?.generated_artifacts || {};
+        
+        return {
+          id: session.run_id,
+          name: developmentPlan.brick_name || `BRICK ${index + 1}`,
+          description: `Generated from: ${session.goal}`,
+          category: 'ai_generated',
+          status: 'completed',
+          priority: developmentPlan.priority === 'critical' ? 9 : developmentPlan.priority === 'high' ? 7 : 5,
+          revenue_potential: developmentPlan.estimated_hours * 150, // $150/hour estimate
+          complexity: Math.min(10, Math.floor(developmentPlan.estimated_hours / 20)),
+          estimated_hours: developmentPlan.estimated_hours || 100,
+          actual_hours: developmentPlan.estimated_hours || 100, // Completed
+          generated_files: generatedArtifacts.total_files || 0,
+          generated_size: generatedArtifacts.total_size_bytes || 0,
+          components: developmentPlan.components || [],
+          created_at: session.created_at,
+          session_id: session.session_id
+        };
+      });
+      
+      // Add default BRICKS if no real sessions exist
+      if (processedBricks.length === 0) {
+        processedBricks.push(
+          {
+            id: 'brick_001',
+            name: 'Church Kit Generator API',
+            description: 'Automated legal formation services for churches and religious organizations',
+            category: 'automation',
+            status: 'production',
+            priority: 8,
+            revenue_potential: 15000,
+            complexity: 7,
+            estimated_hours: 120,
+            actual_hours: 115,
+            generated_files: 0,
+            generated_size: 0,
+            components: ['API endpoints', 'Database integration', 'Payment processing'],
+            created_at: new Date().toISOString(),
+            session_id: 'default'
+          }
+        );
+      }
+      
+      setBricks(processedBricks);
 
       setOpportunities([
         {
@@ -230,6 +245,12 @@ const Bricks = () => {
                     <span className="text-gray-500">Progress:</span>
                     <span className="text-gray-900">{Math.round((brick.actual_hours / brick.estimated_hours) * 100)}%</span>
                   </div>
+                  {brick.generated_files > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Generated Files:</span>
+                      <span className="text-blue-600 font-medium">{brick.generated_files} files ({(brick.generated_size / 1024).toFixed(1)}KB)</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -238,6 +259,18 @@ const Bricks = () => {
                     style={{ width: `${Math.round((brick.actual_hours / brick.estimated_hours) * 100)}%` }}
                   ></div>
                 </div>
+                
+                {brick.generated_files > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">Generated Code Artifacts:</span>
+                      <span className="text-xs text-blue-600">Ready for deployment</span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-600">
+                      Python code, Docker config, JSON config, Requirements file
+                    </div>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>

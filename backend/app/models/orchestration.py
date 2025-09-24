@@ -62,7 +62,7 @@ class TaskLog(Base):
     task_id = Column(Integer, ForeignKey("orchestration_tasks.id"))
     log_level = Column(String(20), nullable=False)  # info, warning, error, debug
     message = Column(Text, nullable=False)
-    metadata = Column(JSON)
+    task_metadata = Column(JSON)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
@@ -80,7 +80,7 @@ class AIInteraction(Base):
     to_ai_system = Column(String(50), nullable=False)
     interaction_type = Column(String(50), nullable=False)  # request, response, collaboration
     message = Column(Text, nullable=False)
-    metadata = Column(JSON)
+    task_metadata = Column(JSON)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

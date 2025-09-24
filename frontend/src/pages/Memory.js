@@ -42,21 +42,13 @@ const EnhancedMemory = () => {
     fetchMemoryData();
     fetchCategories();
     fetchTags();
+    fetchStats();
   }, []);
 
   const fetchMemoryData = async () => {
     try {
-      let url = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`;
-      const params = new URLSearchParams();
-      
-      if (selectedCategory) params.append('category', selectedCategory);
-      if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
+      // Always fetch all memories without filters - filtering will be done client-side
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`);
       const data = await response.json();
       setMemories(data.memories || []);
       setLoading(false);
@@ -83,6 +75,16 @@ const EnhancedMemory = () => {
       setAvailableTags(data.tags || {});
     } catch (error) {
       console.error('Error fetching tags:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/stats`);
+      const data = await response.json();
+      setStats(data.statistics || {});
+    } catch (error) {
+      console.error('Error fetching stats:', error);
     }
   };
 
@@ -236,9 +238,21 @@ const EnhancedMemory = () => {
   };
 
   const filteredMemories = memories.filter(memory => {
-    const matchesSearch = memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         memory.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
+    // Filter by search query (content or tags)
+    const matchesSearch = searchQuery === '' || 
+                         memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
+    
+    // Filter by category (exact match)
+    const matchesCategory = selectedCategory === '' || memory.category === selectedCategory;
+    
+    // Filter by tags (any selected tag must be present in memory tags)
+    const matchesTags = selectedTags.length === 0 || 
+                       (memory.tags && selectedTags.some(selectedTag => 
+                         memory.tags.some(memoryTag => memoryTag.toLowerCase() === selectedTag.toLowerCase())
+                       ));
+    
+    return matchesSearch && matchesCategory && matchesTags;
   });
 
   const formatDate = (dateString) => {
@@ -258,6 +272,14 @@ const EnhancedMemory = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+    setSelectedTags([]);
+  };
+
+  const hasActiveFilters = searchQuery || selectedCategory || selectedTags.length > 0;
 
   if (loading) {
     return (
@@ -280,10 +302,13 @@ const EnhancedMemory = () => {
       {/* Stats Overview */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { name: 'Total Memories', value: memories.length, icon: CircleStackIcon, color: 'bg-blue-500' },
-          { name: 'Categories', value: Object.keys(categories).length, icon: FolderIcon, color: 'bg-green-500' },
-          { name: 'Available Tags', value: Object.keys(availableTags).length, icon: TagIcon, color: 'bg-purple-500' },
-          { name: 'Documents', value: memories.filter(m => m.source_type === 'pdf' || m.file_name).length, icon: DocumentIcon, color: 'bg-yellow-500' }
+          { name: 'Total Memories', value: stats.total_memories || memories.length, icon: CircleStackIcon, color: 'bg-blue-500' },
+          { name: 'Categories', value: Object.keys(stats.categories || categories).length, icon: FolderIcon, color: 'bg-green-500' },
+          { name: 'Available Tags', value: Object.keys(stats.top_tags || availableTags).length, icon: TagIcon, color: 'bg-purple-500' },
+          { name: 'Recent Memories', value: stats.recent_memories || memories.filter(m => {
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            return new Date(m.timestamp || m.created_at) > oneDayAgo;
+          }).length, icon: DocumentIcon, color: 'bg-yellow-500' }
         ].map((stat, index) => (
           <motion.div
             key={stat.name}
@@ -486,8 +511,20 @@ const EnhancedMemory = () => {
             >
               <option value="">All Categories</option>
               {Object.entries(categories).map(([key, category]) => (
-                <option key={key} value={key}>{category.name}</option>
+                <option key={key} value={key}>
+                  {typeof category === 'string' ? category : category.name || key}
+                </option>
               ))}
+              {/* Add common categories if not in API response */}
+              {Object.keys(categories).length === 0 && (
+                <>
+                  <option value="general">General</option>
+                  <option value="business">Business</option>
+                  <option value="technical">Technical</option>
+                  <option value="documents">Documents</option>
+                  <option value="development">Development</option>
+                </>
+              )}
             </select>
             <select
               value={selectedTags.join(',')}
@@ -496,11 +533,76 @@ const EnhancedMemory = () => {
             >
               <option value="">All Tags</option>
               {Object.entries(availableTags).map(([tag, info]) => (
-                <option key={tag} value={tag}>{tag} ({info.count})</option>
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
               ))}
+              {/* Add common tags if not in API response */}
+              {Object.keys(availableTags).length === 0 && (
+                <>
+                  <option value="strategy">Strategy</option>
+                  <option value="development">Development</option>
+                  <option value="business">Business</option>
+                  <option value="technical">Technical</option>
+                  <option value="research">Research</option>
+                  <option value="document">Document</option>
+                  <option value="uploaded">Uploaded</option>
+                </>
+              )}
             </select>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="btn-outline text-sm px-3 py-2 whitespace-nowrap"
+                title="Clear all filters"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
+        
+        {/* Active Filters Display */}
+        {hasActiveFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-gray-600">Active filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                  Search: "{searchQuery}"
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="ml-1 text-blue-600 hover:text-blue-800"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {selectedCategory && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                  Category: {selectedCategory}
+                  <button
+                    onClick={() => setSelectedCategory('')}
+                    className="ml-1 text-green-600 hover:text-green-800"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {selectedTags.map((tag) => (
+                <span key={tag} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                  Tag: {tag}
+                  <button
+                    onClick={() => setSelectedTags(selectedTags.filter(t => t !== tag))}
+                    className="ml-1 text-purple-600 hover:text-purple-800"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Memory List */}
@@ -509,12 +611,20 @@ const EnhancedMemory = () => {
           <div className="card text-center py-12">
             <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
-            <p className="text-gray-600">
-              {searchQuery || selectedCategory || selectedTags.length > 0
-                ? 'Try adjusting your search criteria'
+            <p className="text-gray-600 mb-4">
+              {hasActiveFilters
+                ? 'Try adjusting your search criteria or clear filters'
                 : 'Upload files or add memories to get started'
               }
             </p>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="btn-primary"
+              >
+                Clear All Filters
+              </button>
+            )}
           </div>
         ) : (
           filteredMemories.map((memory, index) => {

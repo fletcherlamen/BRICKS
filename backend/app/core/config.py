@@ -23,13 +23,13 @@ class Settings(BaseSettings):
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/brick_orchestration"
+    DATABASE_URL: str = "postgresql://brick_user:brick_password@postgres:5432/brick_orchestration"
     POSTGRES_USER: str = "brick_user"
     POSTGRES_PASSWORD: str = "brick_password"
     POSTGRES_DB: str = "brick_orchestration"
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = "redis://redis:6379"
     
     # CrewAI
     CREWAI_API_KEY: Optional[str] = None

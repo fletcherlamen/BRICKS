@@ -48,25 +48,27 @@ async def execute_orchestration(
     
     try:
         # Execute orchestration based on task type
-        if request.task_type.lower() == "strategic analysis":
+        task_type_lower = request.task_type.lower().replace(" ", "_").replace("-", "_")
+        
+        if task_type_lower in ["strategic_analysis", "strategic"]:
             results = await orchestrator.execute_strategic_analysis(
                 goal=request.goal,
                 context=request.context,
                 session_id=request.session_id
             )
-        elif request.task_type.lower() == "brick development":
+        elif task_type_lower in ["brick_development", "brick", "development"]:
             results = await orchestrator.execute_brick_development(
                 goal=request.goal,
                 context=request.context,
                 session_id=request.session_id
             )
-        elif request.task_type.lower() == "revenue optimization":
+        elif task_type_lower in ["revenue_optimization", "revenue", "optimization"]:
             results = await orchestrator.execute_revenue_optimization(
                 goal=request.goal,
                 context=request.context,
                 session_id=request.session_id
             )
-        elif request.task_type.lower() == "gap analysis":
+        elif task_type_lower in ["gap_analysis", "gap"]:
             results = await orchestrator.execute_gap_analysis(
                 goal=request.goal,
                 context=request.context,

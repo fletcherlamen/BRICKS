@@ -84,7 +84,9 @@ async def store_memory(memory: MemoryRequest):
             content=memory.content,
             category=memory.category,
             tags=memory.tags,
-            importance_score=memory.importance_score
+            importance_score=memory.importance_score,
+            memory_type=memory.memory_type,
+            source_type=memory.source_type
         )
         
         logger.info("Memory stored successfully", 
@@ -143,20 +145,27 @@ async def upload_file(
         content = await file.read()
         file_size = len(content)
         
-        # For now, store as text content (in production, would extract text from PDF)
-        if file_type == 'pdf':
-            # Mock PDF text extraction
-            extracted_content = f"[PDF Content from {file.filename}]\n\nThis is mock extracted text from the PDF file. In production, this would use PyPDF2 or similar library to extract actual text content."
-        else:
-            # For text and markdown files
-            extracted_content = content.decode('utf-8')
-        
-        # Parse tags from JSON string
+        # Parse tags from JSON string first (before using in content generation)
         import json
         try:
             parsed_tags = json.loads(tags) if tags else []
         except json.JSONDecodeError:
             parsed_tags = [tags] if tags else []
+        
+        # Real file processing - extract actual content
+        if file_type == 'pdf':
+            # For PDF files, store metadata and note that content extraction is needed
+            extracted_content = f"[PDF FILE UPLOADED: {file.filename}]\n\nFile Size: {file_size} bytes\nUploaded: {datetime.now().isoformat()}\nCategory: {category}\nTags: {', '.join(parsed_tags)}\n\nNote: PDF content extraction requires additional processing. File has been stored and can be processed for text extraction."
+        else:
+            # For text and markdown files - extract real content
+            try:
+                extracted_content = content.decode('utf-8')
+                # Validate that we got meaningful content
+                if len(extracted_content.strip()) < 10:
+                    extracted_content = f"[TEXT FILE: {file.filename}]\n\nFile appears to be empty or contains minimal content.\nOriginal content: {extracted_content}"
+            except UnicodeDecodeError:
+                # Handle encoding issues
+                extracted_content = f"[BINARY FILE: {file.filename}]\n\nFile Size: {file_size} bytes\nType: {file.content_type}\nNote: File contains binary data that cannot be displayed as text."
         
         # Store memory using real orchestrator
         from app.services.real_orchestrator import real_orchestrator
@@ -165,7 +174,11 @@ async def upload_file(
             content=extracted_content,
             category=category,
             tags=parsed_tags,
-            importance_score=importance_score
+            importance_score=importance_score,
+            memory_type="document",
+            source_type=file_type,
+            file_name=file.filename,
+            file_size=file_size
         )
         
         logger.info("File uploaded and memory stored", 
@@ -237,7 +250,9 @@ async def upload_large_text(
             content=content,
             category=category,
             tags=parsed_tags,
-            importance_score=importance_score
+            importance_score=importance_score,
+            memory_type="text",
+            source_type="text"
         )
         
         logger.info("Large text uploaded and memory stored", 
@@ -282,33 +297,6 @@ async def list_memories(
         # Get memories from real orchestrator
         from app.services.real_orchestrator import real_orchestrator
         memories = real_orchestrator.get_memories(limit=limit * 2)  # Get more for filtering
-        
-        # Add default memories if none exist
-        if not memories:
-            default_memories = [
-                {
-                    "memory_id": "mem_001",
-                    "content": "Church Kit Generator has high revenue potential",
-                    "category": "business",
-                    "importance_score": 0.9,
-                    "tags": ["revenue", "strategy", "church-kit"],
-                    "source_type": "text",
-                    "created_at": datetime.now().isoformat()
-                },
-                {
-                    "memory_id": "mem_002",
-                    "content": "Mobile app development is a critical gap",
-                    "category": "technical",
-                    "importance_score": 0.8,
-                    "tags": ["gap", "mobile", "development"],
-                    "source_type": "text",
-                    "created_at": datetime.now().isoformat()
-                }
-            ]
-            # Store default memories in orchestrator so they can be deleted
-            for memory in default_memories:
-                real_orchestrator.memories[memory["memory_id"]] = memory
-            memories = default_memories
         
         # Apply filters
         filtered_memories = memories
@@ -548,27 +536,56 @@ async def get_tags():
 
 @router.get("/stats")
 async def get_memory_stats():
-    """Get memory statistics"""
+    """Get real memory statistics from actual stored memories"""
     
     try:
-        # Mock stats - would query database in production
+        from app.services.real_orchestrator import real_orchestrator
+        
+        # Get real memory data
+        memories = real_orchestrator.get_memories()
+        
+        # Calculate real statistics
+        total_memories = len(memories)
+        memory_types = {}
+        categories = {}
+        tags_count = {}
+        
+        for memory in memories:
+            # Count by type
+            mem_type = memory.get("memory_type", "unknown")
+            memory_types[mem_type] = memory_types.get(mem_type, 0) + 1
+            
+            # Count by category
+            category = memory.get("category", "unknown")
+            categories[category] = categories.get(category, 0) + 1
+            
+            # Count tags
+            for tag in memory.get("tags", []):
+                tags_count[tag] = tags_count.get(tag, 0) + 1
+        
+        # Get recent memories (last 24 hours)
+        recent_memories = 0
+        recent_cutoff = datetime.now().timestamp() - (24 * 60 * 60)
+        
+        for memory in memories:
+            try:
+                memory_time = datetime.fromisoformat(memory.get("created_at", "")).timestamp()
+                if memory_time > recent_cutoff:
+                    recent_memories += 1
+            except:
+                pass  # Skip invalid timestamps
+        
+        # Get session count from orchestrator
+        session_count = len(real_orchestrator.sessions)
+        
         stats = {
-            "total_memories": 150,
-            "memory_types": {
-                "strategy": 45,
-                "gap": 30,
-                "fact": 50,
-                "experience": 25
-            },
-            "recent_memories": 12,
-            "session_count": 8,
-            "most_accessed": [
-                {
-                    "memory_id": "mem_001",
-                    "content": "Church Kit Generator has high revenue potential",
-                    "access_count": 25
-                }
-            ]
+            "total_memories": total_memories,
+            "memory_types": memory_types,
+            "categories": categories,
+            "top_tags": dict(sorted(tags_count.items(), key=lambda x: x[1], reverse=True)[:10]),
+            "recent_memories": recent_memories,
+            "session_count": session_count,
+            "data_source": "real_orchestrator"
         }
         
         return {
@@ -646,26 +663,14 @@ async def delete_memory(memory_id: str):
     try:
         from app.services.real_orchestrator import real_orchestrator
         
-        # Check if memory exists in the orchestrator's memory dictionary
-        if memory_id not in real_orchestrator.memories:
-            # Also check if it's one of the default memories that might be shown in the list
-            # but not stored in the orchestrator
-            memories = real_orchestrator.get_memories()
-            memory_exists = any(memory.get('memory_id') == memory_id for memory in memories)
-            
-            if not memory_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Memory with ID {memory_id} not found"
-                )
+        # Delete from database using real orchestrator
+        deleted = await real_orchestrator.delete_memory(memory_id)
         
-        # Delete from orchestrator (in production, this would delete from database)
-        if memory_id in real_orchestrator.memories:
-            del real_orchestrator.memories[memory_id]
-            logger.info("Memory deleted from orchestrator", memory_id=memory_id)
-        else:
-            # If it's a default memory not in orchestrator, just log the deletion
-            logger.info("Default memory deletion requested", memory_id=memory_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Memory with ID {memory_id} not found"
+            )
         
         return {
             "memory_id": memory_id,

@@ -14,6 +14,7 @@ logger = structlog.get_logger(__name__)
 
 # Create async engine with asyncpg driver
 async_database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+logger.info("Database URL", url=async_database_url)
 engine = create_async_engine(
     async_database_url,
     echo=settings.DEBUG,

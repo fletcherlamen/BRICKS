@@ -10,6 +10,7 @@ from app.api.v1.api import api_router
 from app.models.ubic import UBICResponse, Status
 from app.core.config import settings
 from datetime import datetime
+import asyncio
 
 # Configure structured logging
 structlog.configure(
@@ -40,6 +41,19 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Database initialization (temporarily disabled)
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    try:
+        # Temporarily disable database initialization due to model relationship issues
+        # from app.core.database import init_db
+        # await init_db()
+        print("⚠️ Database initialization temporarily disabled - using in-memory storage")
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        # Continue without database for now
 
 # Configure CORS
 app.add_middleware(

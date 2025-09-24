@@ -2,7 +2,7 @@
 Memory models for persistent AI memory and context
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Float
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Float, Boolean
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -19,7 +19,7 @@ class Memory(Base):
     importance_score = Column(Float, default=0.5)  # 0.0 to 1.0
     tags = Column(JSON)  # Array of tags for categorization
     source_system = Column(String(50))  # Which AI system created this memory
-    metadata = Column(JSON)
+    memory_metadata = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_accessed = Column(DateTime(timezone=True))
@@ -58,7 +58,7 @@ class KnowledgeGraph(Base):
     relationship = Column(String(100), nullable=False)
     target_entity = Column(String(200), nullable=False, index=True)
     strength = Column(Float, default=1.0)  # Relationship strength
-    metadata = Column(JSON)
+    memory_metadata = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
