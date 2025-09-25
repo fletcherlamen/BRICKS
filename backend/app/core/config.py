@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@postgres:5432/brick_orchestration"
+    DATABASE_URL: str = "postgresql://user:password@64.227.99.111:5432/brick_orchestration"
     POSTGRES_USER: str = "user"
     POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "brick_orchestration"

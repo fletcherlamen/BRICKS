@@ -6,6 +6,7 @@ Enhanced orchestration API endpoints designed specifically for BRICK 2 automatio
 ## API Base URL
 - **Local**: `http://localhost:8000/api/v1/orchestration`
 - **VPS**: `http://64.227.99.111:8000/api/v1/orchestration`
+- **Production**: `http://64.227.99.111:8000/api/v1/orchestration`
 
 ---
 
