@@ -15,7 +15,7 @@ class OrchestrationSession(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), unique=True, index=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, nullable=True)  # Removed foreign key constraint
     status = Column(String(50), default="active")  # active, completed, failed, cancelled
     goal = Column(Text)  # High-level goal description
     context = Column(JSON)  # Session context and parameters
