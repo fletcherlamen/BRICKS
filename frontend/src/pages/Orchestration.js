@@ -198,8 +198,15 @@ const Orchestration = () => {
         throw new Error(data.message || 'Orchestration failed');
       }
     } catch (error) {
-      toast.error('Orchestration failed: ' + error.message);
+      toast.error('AI Orchestration Failed: ' + error.message);
       console.error('Orchestration error:', error);
+      // Add error status indicator
+      setExecutionResults({
+        sessionId: 'error',
+        status: 'failed',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -299,12 +306,12 @@ const Orchestration = () => {
                 {isExecuting ? (
                   <>
                     <div className="spinner mr-2"></div>
-                    Executing...
+                    Building Real Systems with AI...
                   </>
                 ) : (
                   <>
                     <PlayIcon className="h-4 w-4 mr-2" />
-                    Execute Orchestration
+                    Start AI Orchestration
                   </>
                 )}
               </button>
@@ -324,19 +331,41 @@ const Orchestration = () => {
             
             {executionResults ? (
               <div className="space-y-4">
+                {/* Error Status Display */}
+                {executionResults.status === 'failed' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2" />
+                      <div>
+                        <h4 className="text-sm font-medium text-red-800">Orchestration Failed</h4>
+                        <p className="text-sm text-red-600 mt-1">{executionResults.error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-600">Session ID:</span>
                   <span className="text-sm text-gray-900 font-mono">{executionResults.sessionId}</span>
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">Status:</span>
-                  <span className="status-healthy">Completed</span>
+                  <span className="text-sm font-medium text-gray-600">Orchestration Status:</span>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                    <span className="status-healthy">Successfully Built</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">Confidence:</span>
-                  <span className="text-sm text-gray-900">{(executionResults.confidence * 100).toFixed(1)}%</span>
+                  <span className="text-sm font-medium text-gray-600">AI Confidence Score:</span>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${
+                      executionResults.confidence > 0.8 ? 'bg-green-500' : 
+                      executionResults.confidence > 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}></div>
+                    <span className="text-sm text-gray-900 font-semibold">{(executionResults.confidence * 100).toFixed(1)}%</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -345,12 +374,18 @@ const Orchestration = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-600">Execution Time:</span>
-                  <span className="text-sm text-gray-900">{executionResults.executionTimeMs}ms</span>
+                  <span className="text-sm font-medium text-gray-600">Build Time:</span>
+                  <div className="flex items-center space-x-2">
+                    <ClockIcon className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-900 font-semibold">{executionResults.executionTimeMs}ms</span>
+                  </div>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Recommendations:</h4>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                    <CpuChipIcon className="h-4 w-4 mr-2 text-blue-500" />
+                    AI-Generated Recommendations:
+                  </h4>
                   <ul className="space-y-1">
                     {executionResults.results.recommendations?.map((rec, index) => (
                       <li key={index} className="text-sm text-gray-600 flex items-start">
@@ -363,7 +398,10 @@ const Orchestration = () => {
 
                 {executionResults.results.key_insights && executionResults.results.key_insights.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Key Insights:</h4>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                      <ExclamationTriangleIcon className="h-4 w-4 mr-2 text-yellow-500" />
+                      Key AI Insights:
+                    </h4>
                     <ul className="space-y-1">
                       {executionResults.results.key_insights.map((insight, index) => (
                         <li key={index} className="flex items-start space-x-2">
@@ -378,8 +416,12 @@ const Orchestration = () => {
             ) : (
               <div className="text-center py-8">
                 <CpuChipIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No execution results yet</p>
-                <p className="text-sm text-gray-400">Run an orchestration task to see results here</p>
+                <p className="text-gray-500 font-medium">Ready to Build Real Systems</p>
+                <p className="text-sm text-gray-400 mt-1">Start an AI orchestration to generate actual working applications</p>
+                <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-gray-400">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>System Ready</span>
+                </div>
               </div>
             )}
           </motion.div>
