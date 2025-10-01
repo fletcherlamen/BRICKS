@@ -7,6 +7,10 @@ from fastapi import APIRouter, HTTPException, Depends, status
 import structlog
 from datetime import datetime
 import time
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from app.core.database import AsyncSessionLocal
 
 from app.models.ubic import (
     UBICResponse, HealthStatus, DependencyInfo, Status, Severity,
@@ -24,6 +28,34 @@ _success_count = 0
 _failed_count = 0
 
 
+async def check_database_health() -> Dict[str, Any]:
+    """Check actual database connection health"""
+    try:
+        start_time = time.time()
+        async with AsyncSessionLocal() as session:
+            # Test database connection with a simple query
+            result = await session.execute(text("SELECT 1 as test"))
+            result.fetchone()
+            response_time = int((time.time() - start_time) * 1000)
+            
+            return {
+                "status": Status.HEALTHY,
+                "response_time_ms": response_time,
+                "connection_type": "vps_postgresql",
+                "host": "64.227.99.111:5432",
+                "database": "brick_orchestration"
+            }
+    except Exception as e:
+        logger.error("Database health check failed", error=str(e))
+        return {
+            "status": Status.CRITICAL,
+            "error": str(e),
+            "connection_type": "vps_postgresql",
+            "host": "64.227.99.111:5432",
+            "database": "brick_orchestration"
+        }
+
+
 @router.get("/", response_model=UBICResponse)
 async def health_check():
     """UBIC v1.5 Required Health Endpoint - Returns status with dependency health"""
@@ -33,15 +65,17 @@ async def health_check():
         _request_count += 1
         _success_count += 1
         
-        # Check dependencies
+        # Check dependencies with real database health check
+        db_health = await check_database_health()
+        
         dependencies = [
             DependencyInfo(
-                name="database",
+                name="postgresql",
                 type="infra",
                 severity=Severity.CRITICAL,
-                status=Status.HEALTHY,
+                status=db_health["status"],
                 last_check=datetime.utcnow(),
-                details={"response_time_ms": 15}
+                details=db_health
             ),
             DependencyInfo(
                 name="redis",
@@ -228,14 +262,17 @@ async def get_state():
 async def get_dependencies():
     """UBIC v1.5 Required Dependencies Endpoint - Lists infra + functional + optional dependencies"""
     try:
+        # Get real database health status
+        db_health = await check_database_health()
+        
         dependencies = [
             DependencyInfo(
                 name="postgresql",
                 type="infra",
                 severity=Severity.CRITICAL,
-                status=Status.HEALTHY,
+                status=db_health["status"],
                 last_check=datetime.utcnow(),
-                details={"host": "db", "port": 5432, "database": "orchestration"}
+                details=db_health
             ),
             DependencyInfo(
                 name="redis",
