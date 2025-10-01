@@ -72,7 +72,7 @@ async def health_check():
             DependencyInfo(
                 name="postgresql",
                 type="infra",
-                severity=Severity.CRITICAL,
+                severity=Severity.INFO if db_health["status"] == Status.HEALTHY else Severity.CRITICAL,
                 status=db_health["status"],
                 last_check=datetime.utcnow(),
                 details=db_health
@@ -269,7 +269,7 @@ async def get_dependencies():
             DependencyInfo(
                 name="postgresql",
                 type="infra",
-                severity=Severity.CRITICAL,
+                severity=Severity.INFO if db_health["status"] == Status.HEALTHY else Severity.CRITICAL,
                 status=db_health["status"],
                 last_check=datetime.utcnow(),
                 details=db_health
