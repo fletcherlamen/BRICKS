@@ -42,7 +42,8 @@ async def check_database_health() -> Dict[str, Any]:
                 "status": Status.HEALTHY,
                 "response_time_ms": response_time,
                 "connection_type": "vps_postgresql",
-                "host": "64.227.99.111:5432",
+                "host": "64.227.99.111",
+                "port": 5432,
                 "database": "brick_orchestration"
             }
     except Exception as e:
@@ -51,7 +52,8 @@ async def check_database_health() -> Dict[str, Any]:
             "status": Status.CRITICAL,
             "error": str(e),
             "connection_type": "vps_postgresql",
-            "host": "64.227.99.111:5432",
+            "host": "64.227.99.111",
+            "port": 5432,
             "database": "brick_orchestration"
         }
 
@@ -80,7 +82,7 @@ async def health_check():
             DependencyInfo(
                 name="redis",
                 type="infra", 
-                severity=Severity.CRITICAL,
+                severity=Severity.INFO,
                 status=Status.HEALTHY,
                 last_check=datetime.utcnow(),
                 details={"response_time_ms": 5}
@@ -276,8 +278,8 @@ async def get_dependencies():
             ),
             DependencyInfo(
                 name="redis",
-                type="infra",
-                severity=Severity.CRITICAL,
+                type="infra", 
+                severity=Severity.INFO,
                 status=Status.HEALTHY,
                 last_check=datetime.utcnow(),
                 details={"host": "redis", "port": 6379}
