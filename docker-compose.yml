@@ -1,26 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: brick_orchestration_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-brick_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brick_password}
-      POSTGRES_DB: ${POSTGRES_DB:-brick_orchestration}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - brick_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brick_user} -d ${POSTGRES_DB:-brick_orchestration}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Redis for caching and session management
   redis:
     image: redis:7-alpine
@@ -44,17 +22,18 @@ services:
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
     environment:
+      # Use VPS database for both local and production
       - DATABASE_URL=postgresql://user:password@64.227.99.111:5432/brick_orchestration
+      # Use local Redis
       - REDIS_URL=redis://redis:6379
-      - ENVIRONMENT=production
-      - DEBUG=false
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
     env_file:
-      - .env
+      - env.local
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -78,11 +57,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
-      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
+      # Point to local backend for development
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
       - PORT=3000
+      - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -92,27 +73,7 @@ services:
     depends_on:
       - backend
 
-  # Nginx Reverse Proxy (for production)
-  nginx:
-    image: nginx:alpine
-    container_name: brick_orchestration_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - brick_network
-    restart: unless-stopped
-    profiles:
-      - production
-
 volumes:
-  postgres_data:
   redis_data:
 
 networks:

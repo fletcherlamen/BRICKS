@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard
 
 api_router = APIRouter()
 
@@ -53,4 +53,11 @@ api_router.include_router(
     brick2_handshake.router,
     prefix="/brick2",
     tags=["brick2-integration"]
+)
+
+# Unified Orchestration Dashboard (Phase 2 Completion)
+api_router.include_router(
+    dashboard.router,
+    prefix="/dashboard",
+    tags=["orchestration-dashboard"]
 )

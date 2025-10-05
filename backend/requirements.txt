@@ -4,7 +4,7 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
 # Database and ORM
-sqlalchemy==2.0.23
+sqlalchemy>=2.0.31
 psycopg2-binary==2.9.9
 asyncpg==0.29.0
 
@@ -19,8 +19,8 @@ aiohttp==3.9.1
 # Data processing
 pandas==2.1.4
 numpy==1.25.2
-pydantic==2.5.0
-pydantic-settings==2.1.0
+pydantic>=2.7.3
+pydantic-settings>=2.1.0
 
 # Monitoring and logging
 structlog==23.2.0
@@ -40,3 +40,14 @@ isort==5.12.0
 # API documentation
 python-dateutil==2.8.2
 email-validator==2.1.0
+
+# AI and ML libraries
+crewai==0.28.8
+openai>=1.13.3
+anthropic==0.7.8
+google-generativeai==0.3.2
+mem0ai==0.0.12
+
+# Additional utilities
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4

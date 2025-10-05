@@ -24,15 +24,20 @@ class CrewAIService:
     async def initialize(self):
         """Initialize CrewAI service"""
         try:
-            if not settings.CREWAI_API_KEY:
-                raise CrewAIError("CrewAI API key not configured")
-            
             # Import CrewAI components
             try:
                 from crewai import Agent, Task, Crew, Process
                 from crewai.tools import BaseTool
-            except ImportError:
-                raise CrewAIError("CrewAI not installed. Run: pip install crewai")
+            except ImportError as e:
+                logger.warning("CrewAI not available, running in mock mode", error=str(e))
+                self.initialized = False
+                return
+            
+            # Check if API key is configured (optional for mock mode)
+            if not settings.CREWAI_API_KEY:
+                logger.warning("CrewAI API key not configured, running in mock mode")
+                self.initialized = False
+                return
             
             # Create specialized agents for BRICK orchestration
             await self._create_agents()
@@ -42,8 +47,8 @@ class CrewAIService:
             logger.info("CrewAI service initialized successfully")
             
         except Exception as e:
-            logger.error("Failed to initialize CrewAI service", error=str(e))
-            raise CrewAIError(f"CrewAI initialization failed: {str(e)}")
+            logger.warning("Failed to initialize CrewAI service, running in mock mode", error=str(e))
+            self.initialized = False
     
     async def _create_agents(self):
         """Create specialized agents for different roles"""
@@ -126,7 +131,14 @@ class CrewAIService:
         """Analyze strategic opportunities using CrewAI"""
         
         if not self.initialized:
-            raise CrewAIError("CrewAI service not initialized")
+            # Return mock response when CrewAI is not available
+            return {
+                "analysis": f"Mock strategic analysis for: {goal}\n\nContext: {context}\n\nThis is a mock response since CrewAI is not available. In a real implementation, this would provide comprehensive strategic analysis with actionable recommendations.",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "agent_used": "strategic_analyst_mock",
+                "mock": True
+            }
         
         try:
             from crewai import Task
@@ -172,7 +184,14 @@ class CrewAIService:
         """Plan BRICK development using CrewAI"""
         
         if not self.initialized:
-            raise CrewAIError("CrewAI service not initialized")
+            # Return mock response when CrewAI is not available
+            return {
+                "development_plan": f"Mock development plan for: {goal}\n\nContext: {context}\n\nThis is a mock response since CrewAI is not available. In a real implementation, this would provide detailed development plan with technical specifications.",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "agent_used": "technical_architect_mock",
+                "mock": True
+            }
         
         try:
             from crewai import Task
@@ -218,7 +237,14 @@ class CrewAIService:
         """Analyze revenue opportunities using CrewAI"""
         
         if not self.initialized:
-            raise CrewAIError("CrewAI service not initialized")
+            # Return mock response when CrewAI is not available
+            return {
+                "revenue_analysis": f"Mock revenue analysis for: {goal}\n\nContext: {context}\n\nThis is a mock response since CrewAI is not available. In a real implementation, this would provide comprehensive revenue opportunity analysis with financial projections.",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "agent_used": "revenue_optimizer_mock",
+                "mock": True
+            }
         
         try:
             from crewai import Task
@@ -264,7 +290,14 @@ class CrewAIService:
         """Identify strategic gaps using CrewAI"""
         
         if not self.initialized:
-            raise CrewAIError("CrewAI service not initialized")
+            # Return mock response when CrewAI is not available
+            return {
+                "gap_analysis": f"Mock gap analysis for: {goal}\n\nContext: {context}\n\nThis is a mock response since CrewAI is not available. In a real implementation, this would provide strategic gap analysis with prioritized recommendations.",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "agent_used": "strategic_analyst_mock",
+                "mock": True
+            }
         
         try:
             from crewai import Task
@@ -310,7 +343,14 @@ class CrewAIService:
         """Perform generic analysis using CrewAI"""
         
         if not self.initialized:
-            raise CrewAIError("CrewAI service not initialized")
+            # Return mock response when CrewAI is not available
+            return {
+                "analysis": f"Mock generic analysis for: {goal}\n\nContext: {context}\n\nThis is a mock response since CrewAI is not available. In a real implementation, this would provide comprehensive analysis and recommendations.",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "agent_used": "strategic_analyst_mock",
+                "mock": True
+            }
         
         try:
             from crewai import Task

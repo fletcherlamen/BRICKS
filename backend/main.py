@@ -36,9 +36,15 @@ async def lifespan(app: FastAPI):
     # Initialize AI services
     try:
         from app.services.ai_orchestrator import AIOrchestrator
+        from app.api.v1.endpoints.dashboard import set_orchestrator
+        
         orchestrator = AIOrchestrator()
         await orchestrator.initialize()
         app.state.orchestrator = orchestrator
+        
+        # Set orchestrator for dashboard
+        set_orchestrator(orchestrator)
+        
         logger.info("AI Orchestrator initialized successfully")
     except Exception as e:
         logger.error("Failed to initialize AI Orchestrator", error=str(e))
@@ -146,25 +152,11 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        # Check database connection
-        from app.core.database import get_db
-        db = next(get_db())
-        
-        # Check Redis connection
-        from app.core.cache import get_redis
-        redis = await get_redis()
-        await redis.ping()
-        
-        # Check AI orchestrator status
-        orchestrator_status = "healthy"
-        if hasattr(app.state, 'orchestrator'):
-            orchestrator_status = await app.state.orchestrator.health_check()
-        
+        # Quick health check - just return basic status
+        # Full checks are available at /api/v1/health/
         return {
             "status": "healthy",
-            "database": "connected",
-            "redis": "connected",
-            "ai_orchestrator": orchestrator_status,
+            "message": "Service is running",
             "timestamp": "2024-01-01T00:00:00Z"
         }
     except Exception as e:

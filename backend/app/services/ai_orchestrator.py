@@ -14,6 +14,7 @@ from app.services.crewai_service import CrewAIService
 from app.services.mem0_service import Mem0Service
 from app.services.devin_service import DevinService
 from app.services.copilot_service import CopilotService
+from app.services.github_copilot_service import GitHubCopilotService
 from app.services.multi_model_router import MultiModelRouter
 
 logger = structlog.get_logger(__name__)
@@ -27,6 +28,7 @@ class AIOrchestrator:
         self.mem0_service: Optional[Mem0Service] = None
         self.devin_service: Optional[DevinService] = None
         self.copilot_service: Optional[CopilotService] = None
+        self.github_copilot_service: Optional[GitHubCopilotService] = None
         self.multi_model_router: Optional[MultiModelRouter] = None
         self.initialized = False
         
@@ -46,6 +48,8 @@ class AIOrchestrator:
                 tasks.append(self._init_devin())
             if settings.COPILOT_STUDIO_API_KEY:
                 tasks.append(self._init_copilot())
+            if settings.GITHUB_COPILOT_TOKEN:
+                tasks.append(self._init_github_copilot())
             
             # Always initialize multi-model router
             tasks.append(self._init_multi_model_router())
@@ -101,6 +105,15 @@ class AIOrchestrator:
             logger.info("Copilot service initialized")
         except Exception as e:
             logger.error(f"Failed to initialize Copilot: {str(e)}")
+    
+    async def _init_github_copilot(self):
+        """Initialize GitHub Copilot service"""
+        try:
+            self.github_copilot_service = GitHubCopilotService()
+            await self.github_copilot_service.initialize()
+            logger.info("GitHub Copilot service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize GitHub Copilot: {str(e)}")
     
     async def _init_multi_model_router(self):
         """Initialize multi-model router"""
@@ -313,6 +326,8 @@ class AIOrchestrator:
             status["services"]["devin"] = await self.devin_service.get_status()
         if self.copilot_service:
             status["services"]["copilot"] = await self.copilot_service.get_status()
+        if self.github_copilot_service:
+            status["services"]["github_copilot"] = await self.github_copilot_service.get_status()
         if self.multi_model_router:
             status["services"]["multi_model_router"] = await self.multi_model_router.get_status()
         
@@ -334,6 +349,7 @@ class AIOrchestrator:
                 self.mem0_service,
                 self.devin_service,
                 self.copilot_service,
+                self.github_copilot_service,
                 self.multi_model_router
             ]
             
@@ -377,6 +393,8 @@ class AIOrchestrator:
                 cleanup_tasks.append(self.devin_service.cleanup())
             if self.copilot_service:
                 cleanup_tasks.append(self.copilot_service.cleanup())
+            if self.github_copilot_service:
+                cleanup_tasks.append(self.github_copilot_service.cleanup())
             if self.multi_model_router:
                 cleanup_tasks.append(self.multi_model_router.cleanup())
             

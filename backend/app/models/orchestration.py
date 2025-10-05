@@ -5,6 +5,9 @@ Orchestration models for tracking AI system interactions
 from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from pydantic import BaseModel
+from typing import Dict, Any, Optional, List
+from datetime import datetime
 from app.core.database import Base
 
 
@@ -85,3 +88,14 @@ class AIInteraction(Base):
     
     # Relationships
     session = relationship("OrchestrationSession")
+
+
+# Pydantic models for API responses
+class UBICResponse(BaseModel):
+    """Unified Brick Intelligence Communication Response"""
+    success: bool
+    message: str
+    data: Optional[Dict[str, Any]] = None
+    timestamp: datetime = datetime.now()
+    session_id: Optional[str] = None
+    task_id: Optional[str] = None

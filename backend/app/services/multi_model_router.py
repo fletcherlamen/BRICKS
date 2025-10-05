@@ -101,34 +101,99 @@ class MultiModelRouter:
                 logger.error("Failed to initialize Google Gemini models", error=str(e))
     
     def _setup_routing_rules(self):
-        """Setup routing rules for different task types"""
+        """Setup advanced routing rules for different task types with cost optimization"""
         
         self.routing_rules = {
             "strategic_analysis": {
                 "preferred_models": ["claude-3-opus", "gpt-4"],
                 "fallback_models": ["claude-3-sonnet", "gpt-3.5-turbo"],
-                "requirements": ["reasoning", "analysis"]
+                "requirements": ["reasoning", "analysis"],
+                "cost_weight": 0.3,
+                "quality_weight": 0.7,
+                "max_tokens": 4000,
+                "temperature": 0.3
             },
             "creative_writing": {
                 "preferred_models": ["gpt-4", "claude-3-opus"],
                 "fallback_models": ["gpt-3.5-turbo", "gemini-pro"],
-                "requirements": ["creative_writing"]
+                "requirements": ["creative_writing"],
+                "cost_weight": 0.4,
+                "quality_weight": 0.6,
+                "max_tokens": 3000,
+                "temperature": 0.8
             },
             "code_generation": {
                 "preferred_models": ["claude-3-opus", "gpt-4"],
                 "fallback_models": ["claude-3-sonnet", "gpt-3.5-turbo"],
-                "requirements": ["code_generation"]
+                "requirements": ["code_generation"],
+                "cost_weight": 0.2,
+                "quality_weight": 0.8,
+                "max_tokens": 6000,
+                "temperature": 0.1
             },
             "fast_response": {
                 "preferred_models": ["gemini-pro", "gpt-3.5-turbo"],
                 "fallback_models": ["claude-3-sonnet"],
-                "requirements": ["fast_response"]
+                "requirements": ["fast_response"],
+                "cost_weight": 0.8,
+                "quality_weight": 0.2,
+                "max_tokens": 1000,
+                "temperature": 0.5
             },
             "multimodal": {
                 "preferred_models": ["gemini-pro"],
                 "fallback_models": ["gpt-4"],
-                "requirements": ["multimodal"]
+                "requirements": ["multimodal"],
+                "cost_weight": 0.5,
+                "quality_weight": 0.5,
+                "max_tokens": 2000,
+                "temperature": 0.4
+            },
+            "brick_development": {
+                "preferred_models": ["claude-3-opus", "gpt-4"],
+                "fallback_models": ["claude-3-sonnet", "gpt-3.5-turbo"],
+                "requirements": ["code_generation", "reasoning", "analysis"],
+                "cost_weight": 0.1,
+                "quality_weight": 0.9,
+                "max_tokens": 8000,
+                "temperature": 0.2
+            },
+            "revenue_optimization": {
+                "preferred_models": ["claude-3-opus", "gpt-4"],
+                "fallback_models": ["claude-3-sonnet", "gpt-3.5-turbo"],
+                "requirements": ["reasoning", "analysis"],
+                "cost_weight": 0.2,
+                "quality_weight": 0.8,
+                "max_tokens": 5000,
+                "temperature": 0.3
+            },
+            "enterprise_automation": {
+                "preferred_models": ["claude-3-sonnet", "gpt-4"],
+                "fallback_models": ["gpt-3.5-turbo", "gemini-pro"],
+                "requirements": ["reasoning", "analysis"],
+                "cost_weight": 0.6,
+                "quality_weight": 0.4,
+                "max_tokens": 3000,
+                "temperature": 0.4
             }
+        }
+        
+        # Cost optimization settings
+        self.cost_optimization = {
+            "budget_limit": 100.0,  # Daily budget in USD
+            "cost_tracking": {},
+            "usage_thresholds": {
+                "warning": 0.8,  # 80% of budget
+                "critical": 0.95  # 95% of budget
+            }
+        }
+        
+        # Performance tracking
+        self.performance_metrics = {
+            "response_times": {},
+            "success_rates": {},
+            "cost_per_request": {},
+            "quality_scores": {}
         }
     
     async def route_request(
@@ -166,22 +231,35 @@ class MultiModelRouter:
             raise AIOrchestrationError(f"Request routing failed: {str(e)}")
     
     def _select_model(self, task_type: str) -> Optional[str]:
-        """Select the best model for the task"""
+        """Select the best model for the task with cost optimization"""
         
         if task_type not in self.routing_rules:
             task_type = "general"
         
-        # Try preferred models first
-        preferred_models = self.routing_rules.get(task_type, {}).get("preferred_models", [])
+        rule = self.routing_rules.get(task_type, {})
+        preferred_models = rule.get("preferred_models", [])
+        fallback_models = rule.get("fallback_models", [])
+        
+        # Check budget constraints
+        if self._is_budget_exceeded():
+            logger.warning("Budget exceeded, using cost-optimized model selection")
+            return self._select_cost_optimized_model(preferred_models + fallback_models)
+        
+        # Try preferred models with cost consideration
         for model_name in preferred_models:
             if model_name in self.models:
-                return model_name
+                if self._is_model_affordable(model_name, rule):
+                    return model_name
         
-        # Try fallback models
-        fallback_models = self.routing_rules.get(task_type, {}).get("fallback_models", [])
+        # Try fallback models with cost consideration
         for model_name in fallback_models:
             if model_name in self.models:
-                return model_name
+                if self._is_model_affordable(model_name, rule):
+                    return model_name
+        
+        # If budget is tight, select most cost-effective available model
+        if self._is_budget_tight():
+            return self._select_cost_optimized_model(list(self.models.keys()))
         
         # Return any available model
         for model_name in self.models.keys():
@@ -189,17 +267,109 @@ class MultiModelRouter:
         
         return None
     
+    def _is_budget_exceeded(self) -> bool:
+        """Check if daily budget is exceeded"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_cost = self.cost_optimization["cost_tracking"].get(today, 0)
+        return daily_cost >= self.cost_optimization["budget_limit"]
+    
+    def _is_budget_tight(self) -> bool:
+        """Check if budget is getting tight"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_cost = self.cost_optimization["cost_tracking"].get(today, 0)
+        threshold = self.cost_optimization["budget_limit"] * self.cost_optimization["usage_thresholds"]["warning"]
+        return daily_cost >= threshold
+    
+    def _is_model_affordable(self, model_name: str, rule: Dict[str, Any]) -> bool:
+        """Check if model is affordable given current budget"""
+        if model_name not in self.models:
+            return False
+        
+        # Get estimated cost for this request
+        estimated_cost = self._estimate_request_cost(model_name, rule)
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_cost = self.cost_optimization["cost_tracking"].get(today, 0)
+        
+        return (daily_cost + estimated_cost) <= self.cost_optimization["budget_limit"]
+    
+    def _select_cost_optimized_model(self, available_models: List[str]) -> Optional[str]:
+        """Select most cost-effective model from available options"""
+        if not available_models:
+            return None
+        
+        # Model cost rankings (lower is better)
+        cost_rankings = {
+            "gemini-pro": 1,
+            "gpt-3.5-turbo": 2,
+            "claude-3-sonnet": 3,
+            "gpt-4": 4,
+            "claude-3-opus": 5
+        }
+        
+        # Sort by cost (ascending)
+        sorted_models = sorted(
+            available_models,
+            key=lambda x: cost_rankings.get(x, 999)
+        )
+        
+        return sorted_models[0] if sorted_models else None
+    
+    def _estimate_request_cost(self, model_name: str, rule: Dict[str, Any]) -> float:
+        """Estimate cost for a request"""
+        # Simplified cost estimation (in USD)
+        cost_per_1k_tokens = {
+            "gpt-4": 0.03,
+            "gpt-3.5-turbo": 0.002,
+            "claude-3-opus": 0.015,
+            "claude-3-sonnet": 0.003,
+            "gemini-pro": 0.001
+        }
+        
+        max_tokens = rule.get("max_tokens", 2000)
+        base_cost = cost_per_1k_tokens.get(model_name, 0.01)
+        
+        return (max_tokens / 1000) * base_cost
+    
+    def _track_request_cost(self, model_name: str, rule: Dict[str, Any], actual_tokens: int = None):
+        """Track actual cost of a request"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        if today not in self.cost_optimization["cost_tracking"]:
+            self.cost_optimization["cost_tracking"][today] = 0
+        
+        if actual_tokens:
+            cost = self._estimate_request_cost(model_name, rule) * (actual_tokens / rule.get("max_tokens", 2000))
+        else:
+            cost = self._estimate_request_cost(model_name, rule)
+        
+        self.cost_optimization["cost_tracking"][today] += cost
+        
+        # Log budget status
+        daily_cost = self.cost_optimization["cost_tracking"][today]
+        budget_limit = self.cost_optimization["budget_limit"]
+        
+        if daily_cost >= budget_limit * self.cost_optimization["usage_thresholds"]["critical"]:
+            logger.critical(f"Budget critical: {daily_cost:.2f}/{budget_limit:.2f} USD used")
+        elif daily_cost >= budget_limit * self.cost_optimization["usage_thresholds"]["warning"]:
+            logger.warning(f"Budget warning: {daily_cost:.2f}/{budget_limit:.2f} USD used")
+    
     async def _execute_request(
         self,
         model_name: str,
         prompt: str,
         context: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Execute request with selected model"""
+        """Execute request with selected model and performance tracking"""
         
         model_info = self.models[model_name]
         model = model_info["model"]
         client = model_info["client"]
+        
+        # Get task type for routing rules
+        task_type = context.get("task_type", "general") if context else "general"
+        rule = self.routing_rules.get(task_type, {})
+        
+        start_time = datetime.now()
         
         try:
             if model.startswith("gpt"):
@@ -207,37 +377,75 @@ class MultiModelRouter:
                 response = await client.chat.completions.create(
                     model=model,
                     messages=[
-                        {"role": "system", "content": "You are an AI assistant helping with business intelligence and strategic analysis."},
+                        {"role": "system", "content": "You are an AI assistant helping with business intelligence and strategic analysis for the I PROACTIVE BRICK Orchestration Intelligence system."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=2000,
-                    temperature=0.7
+                    max_tokens=rule.get("max_tokens", 2000),
+                    temperature=rule.get("temperature", 0.7)
                 )
+                
+                # Track usage and cost
+                usage = response.usage
+                self._track_request_cost(model_name, rule, usage.total_tokens if usage else None)
+                self._track_performance(model_name, start_time, True)
+                
                 return response.choices[0].message.content
             
             elif model.startswith("claude"):
                 # Anthropic models
                 response = await client.messages.create(
                     model=model,
-                    max_tokens=2000,
-                    temperature=0.7,
+                    max_tokens=rule.get("max_tokens", 2000),
+                    temperature=rule.get("temperature", 0.7),
                     messages=[
                         {"role": "user", "content": prompt}
                     ]
                 )
+                
+                # Track usage and cost (Anthropic doesn't provide detailed usage in response)
+                self._track_request_cost(model_name, rule)
+                self._track_performance(model_name, start_time, True)
+                
                 return response.content[0].text
             
             elif model.startswith("gemini"):
                 # Google Gemini models
                 response = await client.generate_content(prompt)
+                
+                # Track usage and cost
+                self._track_request_cost(model_name, rule)
+                self._track_performance(model_name, start_time, True)
+                
                 return response.text
             
             else:
                 raise AIOrchestrationError(f"Unsupported model: {model}")
                 
         except Exception as e:
+            self._track_performance(model_name, start_time, False)
             logger.error("Model execution failed", model=model, error=str(e))
             raise AIOrchestrationError(f"Model execution failed: {str(e)}")
+    
+    def _track_performance(self, model_name: str, start_time: datetime, success: bool):
+        """Track performance metrics for a model"""
+        response_time = (datetime.now() - start_time).total_seconds()
+        
+        # Initialize metrics if not exists
+        if model_name not in self.performance_metrics["response_times"]:
+            self.performance_metrics["response_times"][model_name] = []
+            self.performance_metrics["success_rates"][model_name] = {"success": 0, "total": 0}
+        
+        # Track response time
+        self.performance_metrics["response_times"][model_name].append(response_time)
+        
+        # Keep only last 100 response times
+        if len(self.performance_metrics["response_times"][model_name]) > 100:
+            self.performance_metrics["response_times"][model_name] = self.performance_metrics["response_times"][model_name][-100:]
+        
+        # Track success rate
+        self.performance_metrics["success_rates"][model_name]["total"] += 1
+        if success:
+            self.performance_metrics["success_rates"][model_name]["success"] += 1
     
     async def get_multiple_perspectives(
         self,
@@ -326,14 +534,56 @@ class MultiModelRouter:
         return await self.route_request(prompt, "strategic_analysis", context)
     
     async def get_status(self) -> Dict[str, Any]:
-        """Get multi-model router status"""
+        """Get comprehensive multi-model router status with metrics"""
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_cost = self.cost_optimization["cost_tracking"].get(today, 0)
+        budget_limit = self.cost_optimization["budget_limit"]
+        
+        # Calculate performance metrics
+        performance_summary = {}
+        for model_name in self.models.keys():
+            if model_name in self.performance_metrics["response_times"]:
+                response_times = self.performance_metrics["response_times"][model_name]
+                success_data = self.performance_metrics["success_rates"].get(model_name, {"success": 0, "total": 0})
+                
+                performance_summary[model_name] = {
+                    "avg_response_time": sum(response_times) / len(response_times) if response_times else 0,
+                    "success_rate": (success_data["success"] / success_data["total"]) * 100 if success_data["total"] > 0 else 0,
+                    "total_requests": success_data["total"]
+                }
         
         return {
             "status": "healthy" if self.initialized else "not_initialized",
             "available_models": list(self.models.keys()),
             "routing_rules": list(self.routing_rules.keys()),
-            "models_count": len(self.models)
+            "models_count": len(self.models),
+            "cost_optimization": {
+                "daily_budget": budget_limit,
+                "daily_usage": daily_cost,
+                "budget_utilization": (daily_cost / budget_limit) * 100,
+                "budget_status": self._get_budget_status(daily_cost, budget_limit),
+                "cost_tracking": self.cost_optimization["cost_tracking"]
+            },
+            "performance_metrics": performance_summary,
+            "routing_configuration": {
+                "task_types": list(self.routing_rules.keys()),
+                "cost_weights": {k: v.get("cost_weight", 0) for k, v in self.routing_rules.items()},
+                "quality_weights": {k: v.get("quality_weight", 0) for k, v in self.routing_rules.items()}
+            },
+            "last_updated": datetime.now().isoformat()
         }
+    
+    def _get_budget_status(self, daily_cost: float, budget_limit: float) -> str:
+        """Get budget status string"""
+        utilization = daily_cost / budget_limit
+        
+        if utilization >= self.cost_optimization["usage_thresholds"]["critical"]:
+            return "critical"
+        elif utilization >= self.cost_optimization["usage_thresholds"]["warning"]:
+            return "warning"
+        else:
+            return "healthy"
     
     async def cleanup(self):
         """Cleanup multi-model router resources"""
