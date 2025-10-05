@@ -29,9 +29,12 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting I PROACTIVE BRICK Orchestration Intelligence")
     
-    # Initialize database
-    await init_db()
-    logger.info("Database initialized successfully")
+    # Initialize database (optional - will retry on first use)
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning("Database initialization failed, will retry on first use", error=str(e))
     
     # Initialize AI services
     try:

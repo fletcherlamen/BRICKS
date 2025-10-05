@@ -47,96 +47,92 @@ class RealOrchestrator:
         logger.info("Real AI Orchestrator initialized", 
                    available_ai_services=self.available_ai_services,
                    total_memories=len(self.memories))
+        
+        # Log AI service status
+        if self.available_ai_services:
+            logger.info("✅ Real AI services configured", services=self.available_ai_services)
+            print(f"✅ Real AI services configured: {', '.join(self.available_ai_services)}")
+        else:
+            logger.warning("⚠️ No real AI services configured - using intelligent templates")
+            print("⚠️ No real AI services configured - using intelligent templates")
+            print("💡 To enable real AI, set API keys in env.local:")
+            print("   - OPENAI_API_KEY=your_openai_key")
+            print("   - ANTHROPIC_API_KEY=your_anthropic_key") 
+            print("   - GOOGLE_GEMINI_API_KEY=your_google_key")
     
     async def _get_db_session(self):
         """Get database session for VPS PostgreSQL operations"""
         try:
-            # Create a fresh session each time to avoid connection issues
-            from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-            from sqlalchemy.orm import sessionmaker
-            
-            # VPS PostgreSQL connection string
-            vps_database_url = "postgresql+asyncpg://user:password@64.227.99.111:5432/brick_orchestration"
-            engine = create_async_engine(vps_database_url, echo=False, pool_pre_ping=True)
-            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-            db_session = async_session()
-            return db_session
+            # Use the main database configuration
+            from app.core.database import AsyncSessionLocal
+            return AsyncSessionLocal()
         except Exception as e:
             logger.error("Failed to create database session", error=str(e))
             raise e
     
     async def _save_session_to_db(self, session_data: Dict[str, Any]):
         """Save orchestration session to VPS PostgreSQL database"""
-        db = None
-        try:
-            db = await self._get_db_session()
-            
-            # Create or update orchestration session
-            db_session = OrchestrationSession(
-                session_id=session_data["session_id"],
-                status=session_data["status"],
-                goal=session_data["goal"],
-                context=session_data["context"],
-                created_at=datetime.fromisoformat(session_data["created_at"]),
-                completed_at=datetime.fromisoformat(session_data["completed_at"]) if session_data.get("completed_at") else None
-            )
-            
-            db.add(db_session)
-            await db.commit()
-            await db.refresh(db_session)
-            
-            logger.info("Session saved to VPS database", session_id=session_data["session_id"])
-            print(f"✅ Session saved to VPS database: {session_data['session_id']}")
-            
-        except Exception as e:
-            logger.error("Failed to save session to VPS database", error=str(e), session_id=session_data["session_id"])
-            print(f"❌ Failed to save session to VPS database: {str(e)}")
-        finally:
-            if db:
-                await db.close()
+        async with AsyncSessionLocal() as db:
+            try:
+                # Create or update orchestration session
+                db_session = OrchestrationSession(
+                    session_id=session_data["session_id"],
+                    status=session_data["status"],
+                    goal=session_data["goal"],
+                    context=session_data["context"],
+                    created_at=datetime.fromisoformat(session_data["created_at"]),
+                    completed_at=datetime.fromisoformat(session_data["completed_at"]) if session_data.get("completed_at") else None
+                )
+                
+                db.add(db_session)
+                await db.commit()
+                await db.refresh(db_session)
+                
+                logger.info("Session saved to VPS database", session_id=session_data["session_id"])
+                print(f"✅ Session saved to VPS database: {session_data['session_id']}")
+                
+            except Exception as e:
+                logger.error("Failed to save session to VPS database", error=str(e), session_id=session_data["session_id"])
+                print(f"❌ Failed to save session to VPS database: {str(e)}")
+                await db.rollback()
     
     async def _get_sessions_from_db(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get orchestration sessions from VPS PostgreSQL database"""
-        db = None
-        try:
-            db = await self._get_db_session()
-            
-            # Query sessions from database
-            result = await db.execute(
-                select(OrchestrationSession)
-                .order_by(OrchestrationSession.created_at.desc())
-                .limit(limit)
-            )
-            db_sessions = result.scalars().all()
-            
-            # Convert to dict format for compatibility
-            sessions = []
-            for session in db_sessions:
-                sessions.append({
-                    "session_id": session.session_id,
-                    "run_id": session.session_id,  # Use session_id as run_id for compatibility
-                    "task_type": "strategic_analysis",  # Default type
-                    "goal": session.goal or "Unknown goal",
-                    "context": session.context or {},
-                    "status": session.status,
-                    "confidence": 0.85,  # Default confidence
-                    "execution_time_ms": 2000,  # Default execution time
-                    "created_at": session.created_at.isoformat(),
-                    "completed_at": session.completed_at.isoformat() if session.completed_at else None,
-                    "results": {}  # Default empty results
-                })
-            
-            logger.info("Sessions retrieved from VPS database", count=len(sessions))
-            print(f"✅ Retrieved {len(sessions)} sessions from VPS database")
-            return sessions
-            
-        except Exception as e:
-            logger.error("Failed to get sessions from VPS database", error=str(e))
-            print(f"❌ Failed to get sessions from VPS database: {str(e)}")
-            return []
-        finally:
-            if db:
-                await db.close()
+        async with AsyncSessionLocal() as db:
+            try:
+                # Query sessions from database
+                result = await db.execute(
+                    select(OrchestrationSession)
+                    .order_by(OrchestrationSession.created_at.desc())
+                    .limit(limit)
+                )
+                db_sessions = result.scalars().all()
+                
+                # Convert to dict format for compatibility
+                sessions = []
+                for session in db_sessions:
+                    sessions.append({
+                        "session_id": session.session_id,
+                        "run_id": session.session_id,  # Use session_id as run_id for compatibility
+                        "task_type": "strategic_analysis",  # Default type
+                        "goal": session.goal or "Unknown goal",
+                        "context": session.context or {},
+                        "status": session.status,
+                        "confidence": 0.85,  # Default confidence
+                        "execution_time_ms": 2000,  # Default execution time
+                        "created_at": session.created_at.isoformat(),
+                        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+                        "results": {}  # Default empty results
+                    })
+                
+                logger.info("Sessions retrieved from VPS database", count=len(sessions))
+                print(f"✅ Retrieved {len(sessions)} sessions from VPS database")
+                return sessions
+                
+            except Exception as e:
+                logger.error("Failed to get sessions from VPS database", error=str(e))
+                print(f"❌ Failed to get sessions from VPS database: {str(e)}")
+                return []
     
     async def _call_openai(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """Call OpenAI GPT-4 for real AI processing"""
@@ -322,14 +318,15 @@ Format your response as a structured analysis with clear sections. Be specific a
         
         # Store the raw AI response for transparency
         ai_analysis_raw = ai_response if ai_response and not ai_response.startswith(("No AI services configured", "AI services temporarily unavailable")) else None
+        is_real_ai = bool(ai_analysis_raw)
         
         analysis_results = {
             "run_id": run_id,
             "session_id": session_id,
             "task_type": "strategic_analysis",
             "status": "completed",
-            "confidence": 0.95 if ai_analysis_raw else 0.85,  # High confidence for intelligent template analysis
-            "execution_time_ms": 3000,  # Real AI processing takes longer
+            "confidence": 0.95 if is_real_ai else 0.85,  # High confidence for intelligent template analysis
+            "execution_time_ms": 3000 if is_real_ai else 1500,  # Real AI processing takes longer
             "analysis": {
                 "key_insights": insights,
                 "recommendations": recommendations,
@@ -337,15 +334,23 @@ Format your response as a structured analysis with clear sections. Be specific a
                 "revenue_potential": revenue_potential,
                 "goal_analyzed": goal,
                 "context_considered": context or {},
-                "ai_analysis_raw": ai_analysis_raw  # Include raw AI response for transparency
+                "ai_analysis_raw": ai_analysis_raw,  # Include raw AI response for transparency
+                "ai_powered": is_real_ai,  # Clear indicator of AI vs template
+                "analysis_type": "real_ai" if is_real_ai else "intelligent_template"
             },
-            "ai_systems_used": self.available_ai_services if ai_analysis_raw else ["intelligent_template"],
+            "ai_systems_used": self.available_ai_services if is_real_ai else ["intelligent_template"],
+            "ai_status": {
+                "real_ai_enabled": is_real_ai,
+                "available_services": self.available_ai_services,
+                "template_fallback": not is_real_ai,
+                "setup_required": not self.available_ai_services
+            },
             "memory_updates": [
                 {
                     "memory_id": f"mem_{run_id}",
-                    "content": f"Strategic analysis completed for: {goal}. AI-Generated: {bool(ai_analysis_raw)}. Key insights: {'; '.join(insights[:3])}",
+                    "content": f"Strategic analysis completed for: {goal}. AI-Generated: {is_real_ai}. Key insights: {'; '.join(insights[:3])}",
                     "category": "analysis",
-                    "tags": ["strategic", "analysis", "ai_generated" if ai_analysis_raw else "template"],
+                    "tags": ["strategic", "analysis", "ai_generated" if is_real_ai else "template"],
                     "importance_score": 0.9
                 }
             ]
@@ -714,158 +719,157 @@ Format your response as a structured analysis with clear sections. Be specific a
     
     async def get_memories(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Get stored memories from VPS PostgreSQL database"""
-        try:
-            db = await self._get_db_session()
-            
-            # Query memories from database
-            result = await db.execute(
-                select(Memory)
-                .order_by(Memory.created_at.desc())
-                .limit(limit)
-            )
-            db_memories = result.scalars().all()
-            
-            # Convert to dict format for compatibility
-            memories = []
-            for memory in db_memories:
-                memories.append({
-                    "memory_id": memory.memory_id,
-                    "content": memory.content,
-                    "memory_type": memory.memory_type,
-                    "category": memory.memory_metadata.get("category", "general") if memory.memory_metadata else "general",
-                    "tags": memory.tags or [],
-                    "source_type": memory.memory_metadata.get("source_type", "user_input") if memory.memory_metadata else "user_input",
-                    "importance_score": memory.importance_score,
-                    "created_at": memory.created_at.isoformat(),
-                    "timestamp": memory.created_at.isoformat(),
-                    "file_name": memory.memory_metadata.get("file_name") if memory.memory_metadata else None,
-                    "file_size": memory.memory_metadata.get("file_size") if memory.memory_metadata else None
-                })
-            
-            logger.info("Memories retrieved from VPS database", count=len(memories))
-            print(f"✅ Retrieved {len(memories)} memories from VPS database")
-            return memories
-            
-        except Exception as e:
-            logger.error("Failed to get memories from VPS database", error=str(e))
-            print(f"❌ Failed to get memories from VPS database: {str(e)}")
-            # Fallback to in-memory storage
-            memories = list(self.memories.values())
-            memories.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-            return memories[:limit]
+        async with AsyncSessionLocal() as db:
+            try:
+                # Query memories from database
+                result = await db.execute(
+                    select(Memory)
+                    .order_by(Memory.created_at.desc())
+                    .limit(limit)
+                )
+                db_memories = result.scalars().all()
+                
+                # Convert to dict format for compatibility
+                memories = []
+                for memory in db_memories:
+                    memories.append({
+                        "memory_id": memory.memory_id,
+                        "content": memory.content,
+                        "memory_type": memory.memory_type,
+                        "category": memory.memory_metadata.get("category", "general") if memory.memory_metadata else "general",
+                        "tags": memory.tags or [],
+                        "source_type": memory.memory_metadata.get("source_type", "user_input") if memory.memory_metadata else "user_input",
+                        "importance_score": memory.importance_score,
+                        "created_at": memory.created_at.isoformat(),
+                        "timestamp": memory.created_at.isoformat(),
+                        "file_name": memory.memory_metadata.get("file_name") if memory.memory_metadata else None,
+                        "file_size": memory.memory_metadata.get("file_size") if memory.memory_metadata else None
+                    })
+                
+                logger.info("Memories retrieved from VPS database", count=len(memories))
+                print(f"✅ Retrieved {len(memories)} memories from VPS database")
+                return memories
+                
+            except Exception as e:
+                logger.error("Failed to get memories from VPS database", error=str(e))
+                print(f"❌ Failed to get memories from VPS database: {str(e)}")
+                # Fallback to in-memory storage
+                memories = list(self.memories.values())
+                memories.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                return memories[:limit]
     
     async def store_memory(self, content: str, category: str = "general", tags: List[str] = None, importance_score: float = 0.5, memory_type: str = "fact", source_type: str = "user_input", file_name: str = None, file_size: int = None) -> Dict[str, Any]:
         """Store memory with VPS PostgreSQL database persistence"""
         
         memory_id = f"mem_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
         
-        try:
-            db = await self._get_db_session()
-            
-            # Prepare metadata
-            metadata = {
-                "category": category,
-                "source_type": source_type,
-                "file_name": file_name,
-                "file_size": file_size
-            }
-            
-            # Create memory record in database
-            db_memory = Memory(
-                memory_id=memory_id,
-                content=content,
-                memory_type=memory_type,
-                importance_score=importance_score,
-                tags=tags or [],
-                source_system="real_orchestrator",
-                memory_metadata=metadata
-            )
-            
-            db.add(db_memory)
-            await db.commit()
-            await db.refresh(db_memory)
-            
-            # Prepare response data
-            memory_data = {
-                "memory_id": memory_id,
-                "content": content,
-                "category": category,
-                "tags": tags or [],
-                "importance_score": importance_score,
-                "source_type": source_type,
-                "file_name": file_name,
-                "file_size": file_size,
-                "created_at": datetime.now().isoformat(),
-                "timestamp": datetime.now().isoformat(),
-                "memory_type": memory_type
-            }
-            
-            # Also store in-memory for compatibility
-            self.memories[memory_id] = memory_data
-            
-            logger.info("Memory stored in VPS database", 
-                       memory_id=memory_id, 
-                       category=category, 
-                       tags=tags,
-                       content_length=len(content))
-            print(f"✅ Memory saved to VPS database: {memory_id}")
-            
-            return memory_data
-            
-        except Exception as e:
-            logger.error("Failed to store memory in VPS database", error=str(e), memory_id=memory_id)
-            print(f"❌ Failed to save memory to VPS database: {str(e)}")
-            
-            # Fallback to in-memory storage
-            memory_data = {
-                "memory_id": memory_id,
-                "content": content,
-                "category": category,
-                "tags": tags or [],
-                "importance_score": importance_score,
-                "source_type": source_type,
-                "file_name": file_name,
-                "file_size": file_size,
-                "created_at": datetime.now().isoformat(),
-                "timestamp": datetime.now().isoformat(),
-                "memory_type": memory_type
-            }
-            
-            self.memories[memory_id] = memory_data
-            return memory_data
+        async with AsyncSessionLocal() as db:
+            try:
+                # Prepare metadata
+                metadata = {
+                    "category": category,
+                    "source_type": source_type,
+                    "file_name": file_name,
+                    "file_size": file_size
+                }
+                
+                # Create memory record in database
+                db_memory = Memory(
+                    memory_id=memory_id,
+                    content=content,
+                    memory_type=memory_type,
+                    importance_score=importance_score,
+                    tags=tags or [],
+                    source_system="real_orchestrator",
+                    memory_metadata=metadata
+                )
+                
+                db.add(db_memory)
+                await db.commit()
+                await db.refresh(db_memory)
+                
+                # Prepare response data
+                memory_data = {
+                    "memory_id": memory_id,
+                    "content": content,
+                    "category": category,
+                    "tags": tags or [],
+                    "importance_score": importance_score,
+                    "source_type": source_type,
+                    "file_name": file_name,
+                    "file_size": file_size,
+                    "created_at": datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
+                    "memory_type": memory_type
+                }
+                
+                # Also store in-memory for compatibility
+                self.memories[memory_id] = memory_data
+                
+                logger.info("Memory stored in VPS database", 
+                           memory_id=memory_id, 
+                           category=category, 
+                           tags=tags,
+                           content_length=len(content))
+                print(f"✅ Memory saved to VPS database: {memory_id}")
+                
+                return memory_data
+                
+            except Exception as e:
+                logger.error("Failed to store memory in VPS database", error=str(e), memory_id=memory_id)
+                print(f"❌ Failed to save memory to VPS database: {str(e)}")
+                await db.rollback()
+                
+                # Fallback to in-memory storage
+                memory_data = {
+                    "memory_id": memory_id,
+                    "content": content,
+                    "category": category,
+                    "tags": tags or [],
+                    "importance_score": importance_score,
+                    "source_type": source_type,
+                    "file_name": file_name,
+                    "file_size": file_size,
+                    "created_at": datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
+                    "memory_type": memory_type
+                }
+                
+                self.memories[memory_id] = memory_data
+                return memory_data
     
     async def delete_memory(self, memory_id: str) -> bool:
         """Delete memory from VPS PostgreSQL database"""
-        try:
-            db = await self._get_db_session()
-            
-            # Delete from database
-            result = await db.execute(
-                delete(Memory).where(Memory.memory_id == memory_id)
-            )
-            await db.commit()
-            
-            # Also delete from in-memory storage
-            if memory_id in self.memories:
-                del self.memories[memory_id]
-            
-            if result.rowcount > 0:
-                logger.info("Memory deleted from VPS database", memory_id=memory_id)
-                print(f"✅ Memory deleted from VPS database: {memory_id}")
-                return True
-            else:
-                logger.warning("Memory not found in VPS database", memory_id=memory_id)
-                return False
+        async with AsyncSessionLocal() as db:
+            try:
+                # Delete from database
+                result = await db.execute(
+                    delete(Memory).where(Memory.memory_id == memory_id)
+                )
+                await db.commit()
                 
-        except Exception as e:
-            logger.error("Failed to delete memory from VPS database", error=str(e), memory_id=memory_id)
-            print(f"❌ Failed to delete memory from VPS database: {str(e)}")
-            
-            # Fallback to in-memory deletion
-            if memory_id in self.memories:
-                del self.memories[memory_id]
-                return True
-            return False
+                # Also delete from in-memory storage
+                if memory_id in self.memories:
+                    del self.memories[memory_id]
+                
+                if result.rowcount > 0:
+                    logger.info("Memory deleted from VPS database", memory_id=memory_id)
+                    print(f"✅ Memory deleted from VPS database: {memory_id}")
+                    return True
+                else:
+                    logger.warning("Memory not found in VPS database", memory_id=memory_id)
+                    return False
+                    
+            except Exception as e:
+                logger.error("Failed to delete memory from VPS database", error=str(e), memory_id=memory_id)
+                print(f"❌ Failed to delete memory from VPS database: {str(e)}")
+                await db.rollback()
+                
+                # Fallback to in-memory deletion
+                if memory_id in self.memories:
+                    del self.memories[memory_id]
+                    return True
+                return False
     
     def _generate_brick_code(self, brick_name: str, components: List[str], goal: str) -> Dict[str, Any]:
         """Generate real deployable applications and systems for BRICK development"""

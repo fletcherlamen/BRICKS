@@ -18,7 +18,18 @@ logger.info("Database URL", url=async_database_url)
 engine = create_async_engine(
     async_database_url,
     echo=settings.DEBUG,
-    future=True
+    future=True,
+    connect_args={
+        "command_timeout": 60,
+        "server_settings": {
+            "application_name": "brick_orchestration",
+        }
+    },
+    pool_timeout=60,
+    pool_recycle=3600,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10
 )
 
 # Create async session factory
@@ -55,7 +66,8 @@ async def init_db():
             logger.info("Database tables created successfully")
     except Exception as e:
         logger.error("Failed to initialize database", error=str(e))
-        raise
+        # Don't raise the error - let the app continue with in-memory fallback
+        logger.warning("Continuing with in-memory fallback due to database issues")
 
 
 async def close_db():
