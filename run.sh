@@ -43,25 +43,16 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
     exit 1
 fi
 
-# Detect if running on VPS
+# VPS Configuration - Always use VPS endpoints
 VPS_IP="64.227.99.111"
 CURRENT_IP=$(hostname -I | awk '{print $1}')
 
-if [[ "$CURRENT_IP" == "$VPS_IP" ]]; then
-    print_header "Running on VPS (64.227.99.111) - Production Mode"
-    export ENVIRONMENT=production
-    export DEBUG=false
-    export REACT_APP_API_URL="http://64.227.99.111:8000"
-    # For VPS deployment, use localhost for database
-    export DATABASE_URL="postgresql://user:password@host.docker.internal:5432/brick_orchestration"
-else
-    print_header "Running locally - Development Mode"
-    export ENVIRONMENT=development
-    export DEBUG=true
-    export REACT_APP_API_URL="http://localhost:8000"
-    # For local development, use VPS database
-    export DATABASE_URL="postgresql://user:password@64.227.99.111:5432/brick_orchestration"
-fi
+print_header "Configuring for VPS endpoints (64.227.99.111)"
+export ENVIRONMENT=production
+export DEBUG=false
+export REACT_APP_API_URL="http://64.227.99.111:8000"
+# Always use VPS database
+export DATABASE_URL="postgresql://user:password@64.227.99.111:5432/brick_orchestration"
 
 print_status "Environment: $ENVIRONMENT"
 print_status "Debug: $DEBUG"
@@ -113,18 +104,13 @@ fi
 print_status "Running containers:"
 docker-compose ps
 
-# Show access URLs
-if [[ "$CURRENT_IP" == "$VPS_IP" ]]; then
-    print_header "🎉 VPS Deployment completed!"
-    print_status "Frontend: http://64.227.99.111:3000"
-    print_status "Backend: http://64.227.99.111:8000"
-    print_status "API Docs: http://64.227.99.111:8000/docs"
-else
-    print_header "🎉 Local deployment completed!"
-    print_status "Frontend: http://localhost:3000"
-    print_status "Backend: http://localhost:8000"
-    print_status "API Docs: http://localhost:8000/docs"
-fi
+# Show access URLs - VPS endpoints
+print_header "🎉 VPS Deployment completed!"
+print_status "Frontend: http://64.227.99.111:3000"
+print_status "Backend: http://64.227.99.111:8000"
+print_status "API Docs: http://64.227.99.111:8000/docs"
+print_status "Local Frontend: http://localhost:3000"
+print_status "Local Backend: http://localhost:8000"
 
 echo ""
 print_status "To view logs: docker-compose logs -f"

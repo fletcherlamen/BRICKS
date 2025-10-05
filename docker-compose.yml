@@ -23,23 +23,23 @@ services:
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
     environment:
-      # Database URL - automatically detects if running on VPS or local
+      # Database URL - VPS PostgreSQL database
       - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@64.227.99.111:5432/brick_orchestration}
       # Redis URL
       - REDIS_URL=redis://redis:6379
       # Environment settings
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - DEBUG=${DEBUG:-true}
-      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # VPS Configuration
       - VPS_IP=${VPS_IP:-64.227.99.111}
       - VPS_FRONTEND_PORT=${VPS_FRONTEND_PORT:-3000}
       - VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
       - VPS_HTTP_PORT=${VPS_HTTP_PORT:-80}
       - VPS_HTTPS_PORT=${VPS_HTTPS_PORT:-443}
-      - VPS_DOMAIN=${VPS_DOMAIN:-your-domain.com}
+      - VPS_DOMAIN=${VPS_DOMAIN:-64.227.99.111}
       # CORS Configuration
-      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
+      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-false}
     env_file:
       - env.unified
     ports:
@@ -70,11 +70,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # API URL - automatically detects if running on VPS or local
+      # API URL - VPS endpoints
       - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
-      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
+      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
       - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
+      - REACT_APP_VPS_FRONTEND_PORT=${VPS_FRONTEND_PORT:-3000}
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
       - PORT=3000
