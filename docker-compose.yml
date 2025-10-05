@@ -14,6 +14,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # FastAPI Backend
   backend:
@@ -22,10 +23,11 @@ services:
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
     environment:
-      # Use VPS PostgreSQL database
-      - DATABASE_URL=postgresql://user:password@64.227.99.111:5432/brick_orchestration
-      # Use local Redis
+      # Database URL - automatically detects if running on VPS or local
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@64.227.99.111:5432/brick_orchestration}
+      # Redis URL
       - REDIS_URL=redis://redis:6379
+      # Environment settings
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - DEBUG=${DEBUG:-true}
       - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
@@ -39,7 +41,7 @@ services:
       # CORS Configuration
       - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
     env_file:
-      - env.local
+      - env.unified
     ports:
       - "8000:8000"
     depends_on:
@@ -52,10 +54,12 @@ services:
       - brick_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://4.227.99.111:8000/health"]
+      test: ["CMD", "curl", "-f", "http://64.227.99.111:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # React Frontend
   frontend:
@@ -66,8 +70,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Point to backend (local or VPS)
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://4.227.99.111:8000}
+      # API URL - automatically detects if running on VPS or local
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
       - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
