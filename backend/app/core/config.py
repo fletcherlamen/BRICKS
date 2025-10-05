@@ -22,11 +22,19 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
     
-    # Database
+    # Database - VPS Configuration
     DATABASE_URL: str = "postgresql://user:password@64.227.99.111:5432/brick_orchestration"
     POSTGRES_USER: str = "user"
     POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "brick_orchestration"
+    
+    # VPS Configuration
+    VPS_IP: str = "64.227.99.111"
+    VPS_FRONTEND_PORT: int = 3000
+    VPS_BACKEND_PORT: int = 8000
+    VPS_HTTP_PORT: int = 80
+    VPS_HTTPS_PORT: int = 443
+    VPS_DOMAIN: Optional[str] = None  # Set your domain here
     
     # Redis
     REDIS_URL: str = "redis://redis:6379"
@@ -56,24 +64,17 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS - VPS production configuration
+    # CORS - Dynamic VPS configuration
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",  # Keep localhost for development
+        # Local development
+        "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8000",
-        # VPS IP addresses
-        "http://64.227.99.111:3000",
-        "http://64.227.99.111:8000", 
-        "http://64.227.99.111:80",
-        "http://64.227.99.111:443",
-        # Domain names (replace with your actual domain)
-        "http://your-domain.com",
-        "https://your-domain.com",
-        "http://www.your-domain.com", 
-        "https://www.your-domain.com",
-        "*"  # Allow all origins for VPS deployment
     ]
+    
+    # CORS allow all origins (set to False for production security)
+    CORS_ALLOW_ALL_ORIGINS: bool = True
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -102,6 +103,29 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
         return v
+    
+    def get_cors_origins(self) -> List[str]:
+        """Get CORS origins based on VPS configuration"""
+        origins = self.CORS_ORIGINS.copy()
+        
+        # Add VPS IP addresses
+        origins.extend([
+            f"http://{self.VPS_IP}:{self.VPS_FRONTEND_PORT}",
+            f"http://{self.VPS_IP}:{self.VPS_BACKEND_PORT}",
+            f"http://{self.VPS_IP}:{self.VPS_HTTP_PORT}",
+            f"http://{self.VPS_IP}:{self.VPS_HTTPS_PORT}",
+        ])
+        
+        # Add domain names if configured
+        if self.VPS_DOMAIN:
+            origins.extend([
+                f"http://{self.VPS_DOMAIN}",
+                f"https://{self.VPS_DOMAIN}",
+                f"http://www.{self.VPS_DOMAIN}",
+                f"https://www.{self.VPS_DOMAIN}",
+            ])
+        
+        return origins
     
     @field_validator("ENVIRONMENT")
     @classmethod
