@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
     
-    # Database - Local PostgreSQL Configuration
-    DATABASE_URL: str = "postgresql://user:password@postgres:5432/brick_orchestration"
+    # Database - VPS PostgreSQL Configuration
+    DATABASE_URL: str = "postgresql://user:password@64.227.99.111:5432/brick_orchestration"
     POSTGRES_USER: str = "user"
     POSTGRES_PASSWORD: str = "password"
     POSTGRES_DB: str = "brick_orchestration"
