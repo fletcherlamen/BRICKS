@@ -1,4 +1,24 @@
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: brick_orchestration_postgres
+    environment:
+      POSTGRES_DB: brick_orchestration
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - brick_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d brick_orchestration"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for caching and session management
   redis:
     image: redis:7-alpine
@@ -22,8 +42,8 @@ services:
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
     environment:
-      # Use VPS database for both local and production
-      - DATABASE_URL=postgresql://user:password@64.227.99.111:5432/brick_orchestration
+      # Use local PostgreSQL database
+      - DATABASE_URL=postgresql://user:password@postgres:5432/brick_orchestration
       # Use local Redis
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=${ENVIRONMENT:-development}
@@ -43,6 +63,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -85,6 +107,7 @@ services:
       - backend
 
 volumes:
+  postgres_data:
   redis_data:
 
 networks:
