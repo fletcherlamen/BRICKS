@@ -24,6 +24,7 @@ const EnhancedMemory = () => {
   const [availableTags, setAvailableTags] = useState({});
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
+  const [databaseStatus, setDatabaseStatus] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -43,6 +44,7 @@ const EnhancedMemory = () => {
     fetchCategories();
     fetchTags();
     fetchStats();
+    fetchDatabaseStatus();
   }, []);
 
   const fetchMemoryData = async () => {
@@ -85,6 +87,31 @@ const EnhancedMemory = () => {
       setStats(data.statistics || {});
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchDatabaseStatus = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/database/health`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDatabaseStatus(data);
+      } else {
+        console.error('Failed to fetch database status:', data);
+        setDatabaseStatus({
+          status: 'error',
+          message: 'Failed to connect to VPS database',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching database status:', error);
+      setDatabaseStatus({
+        status: 'error',
+        message: 'Failed to connect to VPS database',
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
@@ -329,6 +356,56 @@ const EnhancedMemory = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* Database Status */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="card"
+      >
+        <div className="card-header">
+          <h3 className="text-lg font-semibold text-gray-900">VPS Database Status</h3>
+        </div>
+        
+        <div className="space-y-4">
+          {databaseStatus ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Connection Status</p>
+                  <p className="text-xs text-gray-500">VPS: 64.227.99.111:5432</p>
+                </div>
+                <span className={`status-indicator ${
+                  databaseStatus.status === 'healthy' ? 'status-healthy' : 'status-error'
+                }`}>
+                  {databaseStatus.status}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Message</p>
+                  <p className="text-xs text-gray-500">{databaseStatus.message}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Last Check</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(databaseStatus.timestamp).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">Loading database status...</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Upload and Add Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

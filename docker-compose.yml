@@ -22,6 +22,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
+    env_file:
+      - env.unified
     environment:
       # Database URL - VPS PostgreSQL database
       - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@64.227.99.111:5432/brick_orchestration}
@@ -39,7 +41,7 @@ services:
       - VPS_HTTPS_PORT=${VPS_HTTPS_PORT:-443}
       - VPS_DOMAIN=${VPS_DOMAIN:-64.227.99.111}
       # CORS Configuration
-      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-false}
+      - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
     ports:
       - "8000:8000"
     depends_on:
@@ -67,9 +69,11 @@ services:
     container_name: brick_orchestration_frontend
     ports:
       - "3000:3000"
+    env_file:
+      - env.unified
     environment:
-      # API URL - VPS endpoints for external access
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
+      # API URL - Use VPS backend which connects to VPS database
+      - REACT_APP_API_URL=http://64.227.99.111:8000
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
       - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
