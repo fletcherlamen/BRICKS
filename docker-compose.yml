@@ -40,8 +40,6 @@ services:
       - VPS_DOMAIN=${VPS_DOMAIN:-64.227.99.111}
       # CORS Configuration
       - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-false}
-    env_file:
-      - env.unified
     ports:
       - "8000:8000"
     depends_on:
@@ -70,8 +68,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # API URL - Use internal Docker network for API calls
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://backend:8000}
+      # API URL - VPS endpoints for external access
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
       - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
