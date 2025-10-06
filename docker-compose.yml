@@ -70,8 +70,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # API URL - VPS endpoints
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
+      # API URL - Use internal Docker network for API calls
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://backend:8000}
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
       - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
