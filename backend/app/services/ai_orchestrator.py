@@ -24,6 +24,11 @@ from app.services.brick_priority_service import BRICKPriorityService
 from app.services.constraint_prediction_service import ConstraintPredictionService
 from app.services.strategic_intelligence_service import StrategicIntelligenceService
 from app.services.human_ai_collaboration_service import HumanAICollaborationService
+# Phase 4 - Revenue Integration Loop Services
+from app.services.church_kit_connector import ChurchKitConnector
+from app.services.global_sky_connector import GlobalSkyConnector
+from app.services.treasury_optimizer import TreasuryOptimizer
+from app.services.autonomous_brick_proposer import AutonomousBRICKProposer
 
 logger = structlog.get_logger(__name__)
 
@@ -48,6 +53,12 @@ class AIOrchestrator:
         self.constraint_prediction_service: Optional[ConstraintPredictionService] = None
         self.strategic_intelligence_service: Optional[StrategicIntelligenceService] = None
         self.human_ai_collaboration_service: Optional[HumanAICollaborationService] = None
+        
+        # Phase 4 Services - Revenue Integration Loop
+        self.church_kit_connector: Optional[ChurchKitConnector] = None
+        self.global_sky_connector: Optional[GlobalSkyConnector] = None
+        self.treasury_optimizer: Optional[TreasuryOptimizer] = None
+        self.autonomous_brick_proposer: Optional[AutonomousBRICKProposer] = None
         
         self.initialized = False
         
@@ -81,6 +92,12 @@ class AIOrchestrator:
             tasks.append(self._init_constraint_prediction())
             tasks.append(self._init_human_ai_collaboration())
             tasks.append(self._init_strategic_intelligence())
+            
+            # Phase 4 - Revenue Integration Loop (always initialize)
+            tasks.append(self._init_church_kit_connector())
+            tasks.append(self._init_global_sky_connector())
+            tasks.append(self._init_treasury_optimizer())
+            tasks.append(self._init_autonomous_brick_proposer())
             
             # Wait for all services to initialize
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -213,6 +230,47 @@ class AIOrchestrator:
             logger.info("Strategic intelligence service initialized")
         except Exception as e:
             logger.error(f"Failed to initialize strategic intelligence service: {str(e)}")
+    
+    async def _init_church_kit_connector(self):
+        """Initialize Church Kit Generator connector"""
+        try:
+            self.church_kit_connector = ChurchKitConnector()
+            await self.church_kit_connector.initialize()
+            logger.info("Church Kit Generator connector initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Church Kit connector: {str(e)}")
+    
+    async def _init_global_sky_connector(self):
+        """Initialize Global Sky AI connector"""
+        try:
+            self.global_sky_connector = GlobalSkyConnector()
+            await self.global_sky_connector.initialize()
+            logger.info("Global Sky AI connector initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Global Sky connector: {str(e)}")
+    
+    async def _init_treasury_optimizer(self):
+        """Initialize Treasury Optimizer"""
+        try:
+            self.treasury_optimizer = TreasuryOptimizer()
+            await self.treasury_optimizer.initialize()
+            logger.info("Treasury Optimizer initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Treasury Optimizer: {str(e)}")
+    
+    async def _init_autonomous_brick_proposer(self):
+        """Initialize Autonomous BRICK Proposer"""
+        try:
+            self.autonomous_brick_proposer = AutonomousBRICKProposer(
+                church_kit_connector=self.church_kit_connector,
+                global_sky_connector=self.global_sky_connector,
+                treasury_optimizer=self.treasury_optimizer,
+                strategic_intelligence=self.strategic_intelligence_service,
+                human_ai_collaboration=self.human_ai_collaboration_service
+            )
+            logger.info("Autonomous BRICK Proposer initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Autonomous BRICK Proposer: {str(e)}")
     
     async def orchestrate_task(
         self,
@@ -437,6 +495,16 @@ class AIOrchestrator:
             status["services"]["human_ai_collaboration"] = await self.human_ai_collaboration_service.get_status()
         if self.strategic_intelligence_service:
             status["services"]["strategic_intelligence"] = await self.strategic_intelligence_service.get_status()
+        
+        # Phase 4 Services - Revenue Integration Loop
+        if self.church_kit_connector:
+            status["services"]["church_kit_generator"] = await self.church_kit_connector.get_status()
+        if self.global_sky_connector:
+            status["services"]["global_sky_ai"] = await self.global_sky_connector.get_status()
+        if self.treasury_optimizer:
+            status["services"]["treasury_optimization"] = await self.treasury_optimizer.get_status()
+        if self.autonomous_brick_proposer:
+            status["services"]["autonomous_brick_proposer"] = await self.autonomous_brick_proposer.get_status()
         
         return status
     

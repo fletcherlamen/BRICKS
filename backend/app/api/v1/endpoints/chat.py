@@ -9,6 +9,9 @@ import structlog
 import time
 import uuid
 from datetime import datetime
+from sqlalchemy import select
+from app.core.database import AsyncSessionLocal
+from app.models.orchestration import ChatMessage as ChatMessageModel, ChatSession as ChatSessionModel
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -37,9 +40,57 @@ class ChatSession(BaseModel):
     last_activity: str
 
 
-# In-memory chat storage (would be database in production)
+# In-memory chat storage (combined with VPS database persistence)
 chat_sessions = {}
 chat_messages = {}
+
+
+async def _save_message_to_db(message_id: str, session_id: str, message_type: str, content: str, metadata: Dict[str, Any] = None):
+    """Save chat message to VPS database"""
+    async with AsyncSessionLocal() as db:
+        try:
+            db_message = ChatMessageModel(
+                message_id=message_id,
+                session_id=session_id,
+                message_type=message_type,
+                content=content,
+                message_metadata=metadata or {}
+            )
+            
+            db.add(db_message)
+            await db.commit()
+            logger.info("Chat message saved to VPS database", message_id=message_id, session_id=session_id)
+            
+        except Exception as e:
+            logger.error("Failed to save chat message to VPS database", error=str(e))
+            await db.rollback()
+
+
+async def _update_session_in_db(session_id: str):
+    """Update or create chat session in VPS database"""
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(ChatSessionModel).where(ChatSessionModel.session_id == session_id)
+            )
+            db_session = result.scalar_one_or_none()
+            
+            if db_session:
+                db_session.message_count += 1
+                db_session.last_activity = datetime.now()
+            else:
+                db_session = ChatSessionModel(
+                    session_id=session_id,
+                    message_count=1
+                )
+                db.add(db_session)
+            
+            await db.commit()
+            logger.info("Chat session updated in VPS database", session_id=session_id)
+            
+        except Exception as e:
+            logger.error("Failed to update chat session in VPS database", error=str(e))
+            await db.rollback()
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -60,9 +111,13 @@ async def send_chat_message(message_request: ChatMessage):
             }
             chat_messages[session_id] = []
         
-        # Store user message
+        # Store user message in VPS database
+        user_message_id = f"user_{int(time.time() * 1000)}"
+        await _save_message_to_db(user_message_id, session_id, "user", message_request.message)
+        
+        # Store user message in memory
         user_message = {
-            "id": f"user_{int(time.time() * 1000)}",
+            "id": user_message_id,
             "type": "user",
             "content": message_request.message,
             "timestamp": datetime.now().isoformat(),
@@ -70,7 +125,8 @@ async def send_chat_message(message_request: ChatMessage):
         }
         chat_messages[session_id].append(user_message)
         
-        # Update session
+        # Update session in VPS database and memory
+        await _update_session_in_db(session_id)
         chat_sessions[session_id]["message_count"] += 1
         chat_sessions[session_id]["last_activity"] = datetime.now().isoformat()
         
@@ -81,9 +137,13 @@ async def send_chat_message(message_request: ChatMessage):
             message_request.context
         )
         
-        # Store system response
+        # Store system response in VPS database
+        system_message_id = f"system_{int(time.time() * 1000)}"
+        await _save_message_to_db(system_message_id, session_id, "system", response_content, metadata)
+        
+        # Store system response in memory
         system_message = {
-            "id": f"system_{int(time.time() * 1000)}",
+            "id": system_message_id,
             "type": "system",
             "content": response_content,
             "timestamp": datetime.now().isoformat(),

@@ -9,6 +9,7 @@ import {
   ChatBubbleLeftRightIcon,
   WrenchScrewdriverIcon,
   LightBulbIcon,
+  BanknotesIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Orchestration', href: '/orchestration', icon: CpuChipIcon },
   { name: 'Strategic Intelligence', href: '/strategic', icon: LightBulbIcon },
+  { name: 'Revenue Integration', href: '/revenue', icon: BanknotesIcon },
   { name: 'BRICKS', href: '/bricks', icon: CubeIcon },
   { name: 'Memory', href: '/memory', icon: CircleStackIcon },
   { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },

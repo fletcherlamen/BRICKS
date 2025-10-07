@@ -9,6 +9,7 @@ import Memory from './pages/Memory';
 import Chat from './pages/Chat';
 import UbicHealth from './pages/UbicHealth';
 import Strategic from './pages/Strategic';
+import Revenue from './pages/Revenue';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="/memory" element={<Memory />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/strategic" element={<Strategic />} />
+          <Route path="/revenue" element={<Revenue />} />
           <Route path="/health" element={<UbicHealth />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

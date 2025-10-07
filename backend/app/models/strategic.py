@@ -135,3 +135,27 @@ class IncomeStream(Base):
     margin = Column(Float)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class BRICKProposal(Base):
+    """BRICK proposals model - stores autonomous BRICK development proposals"""
+    __tablename__ = "brick_proposals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(String, unique=True, index=True, nullable=False)
+    proposal_type = Column(String, nullable=False)
+    brick_name = Column(String, nullable=False)
+    brick_id = Column(String)
+    opportunity = Column(JSON)
+    brick_design = Column(JSON)
+    revenue_impact = Column(JSON)
+    feasibility_assessment = Column(JSON)
+    implementation_plan = Column(JSON)
+    intelligence_sources = Column(JSON)
+    status = Column(String, default="pending_approval")  # pending_approval, approved, rejected, in_development
+    confidence_score = Column(Float)
+    human_feedback = Column(Text)
+    reviewed_by = Column(String)
+    reviewed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

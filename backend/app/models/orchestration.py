@@ -90,6 +90,30 @@ class AIInteraction(Base):
     session = relationship("OrchestrationSession")
 
 
+class ChatMessage(Base):
+    """Chat messages model - stores chat conversation history"""
+    __tablename__ = "chat_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(String, unique=True, index=True, nullable=False)
+    session_id = Column(String, index=True, nullable=False)
+    message_type = Column(String(20), nullable=False)  # user or system
+    content = Column(Text, nullable=False)
+    message_metadata = Column(JSON)  # renamed from 'metadata' (SQLAlchemy reserved)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChatSession(Base):
+    """Chat sessions model - stores chat session metadata"""
+    __tablename__ = "chat_sessions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, index=True, nullable=False)
+    message_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_activity = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 # Pydantic models for API responses
 class UBICResponse(BaseModel):
     """Unified Brick Intelligence Communication Response"""
