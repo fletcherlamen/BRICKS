@@ -168,30 +168,30 @@ class RealOrchestrator:
             return f"OpenAI API call failed: {str(e)}"
     
     async def _call_anthropic(self, prompt: str, max_tokens: int = 1000) -> str:
-        """Call Anthropic Claude for real AI processing"""
+        """Call Anthropic Claude for real AI processing (v0.7.8 completions API)"""
         if not self.anthropic_api_key:
             return "Anthropic API key not configured"
         
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "https://api.anthropic.com/v1/messages",
+                    "https://api.anthropic.com/v1/complete",
                     headers={
                         "x-api-key": self.anthropic_api_key,
-                        "Content-Type": "application/json",
-                        "anthropic-version": "2023-06-01"
+                        "Content-Type": "application/json"
                     },
                     json={
-                        "model": "claude-3-sonnet-20240229",
-                        "max_tokens": max_tokens,
-                        "messages": [{"role": "user", "content": prompt}]
+                        "model": "claude-2.1",
+                        "prompt": f"\n\nHuman: {prompt}\n\nAssistant:",
+                        "max_tokens_to_sample": max_tokens,
+                        "temperature": 0.7
                     },
                     timeout=30.0
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    return result["content"][0]["text"]
+                    return result["completion"]
                 else:
                     logger.error("Anthropic API error", status_code=response.status_code, response=response.text)
                     return f"Anthropic API error: {response.status_code}"

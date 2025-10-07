@@ -5,6 +5,7 @@ Routes requests to appropriate AI models based on task requirements
 
 from typing import Dict, List, Optional, Any
 import structlog
+import asyncio
 from datetime import datetime
 
 from app.core.config import settings
@@ -62,25 +63,28 @@ class MultiModelRouter:
             except Exception as e:
                 logger.error("Failed to initialize OpenAI models", error=str(e))
         
-        # Anthropic Claude models
+        # Anthropic Claude models (v0.7.8 uses different API)
         if settings.ANTHROPIC_API_KEY:
             try:
                 import anthropic
-                self.models["claude-3-opus"] = {
-                    "client": anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY),
-                    "model": "claude-3-opus-20240229",
+                # For Anthropic v0.7.8, use AsyncAnthropic with completions API
+                client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+                
+                self.models["claude-2.1"] = {
+                    "client": client,
+                    "model": "claude-2.1",
                     "capabilities": ["reasoning", "analysis", "code_generation"],
-                    "cost": "high",
-                    "speed": "medium"
-                }
-                self.models["claude-3-sonnet"] = {
-                    "client": anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY),
-                    "model": "claude-3-sonnet-20240229",
-                    "capabilities": ["balanced", "reasoning"],
                     "cost": "medium",
                     "speed": "medium"
                 }
-                logger.info("Anthropic models initialized")
+                self.models["claude-instant"] = {
+                    "client": client,
+                    "model": "claude-instant-1.2",
+                    "capabilities": ["fast_response", "general"],
+                    "cost": "low",
+                    "speed": "fast"
+                }
+                logger.info("Anthropic models initialized (Claude 2.1, Claude Instant)")
             except Exception as e:
                 logger.error("Failed to initialize Anthropic models", error=str(e))
         
@@ -150,8 +154,8 @@ class MultiModelRouter:
                 "temperature": 0.4
             },
             "brick_development": {
-                "preferred_models": ["claude-3-opus", "gpt-4"],
-                "fallback_models": ["claude-3-sonnet", "gpt-3.5-turbo"],
+                "preferred_models": ["gpt-4"],
+                "fallback_models": ["gpt-3.5-turbo", "gemini-pro"],
                 "requirements": ["code_generation", "reasoning", "analysis"],
                 "cost_weight": 0.1,
                 "quality_weight": 0.9,
@@ -214,13 +218,19 @@ class MultiModelRouter:
             if not model_name:
                 raise AIOrchestrationError("No suitable model found for task")
             
-            # Execute request
-            result = await self._execute_request(model_name, prompt, context)
+            logger.info("Routing request to AI model", model=model_name, task_type=task_type)
+            
+            # Execute request with timeout
+            result = await asyncio.wait_for(
+                self._execute_request(model_name, prompt, context),
+                timeout=60.0  # Increased timeout for AI processing
+            )
             
             logger.info("Request routed successfully", model=model_name, task_type=task_type)
             
             return {
-                "result": result,
+                "status": "success",
+                "response": result,
                 "model_used": model_name,
                 "task_type": task_type,
                 "timestamp": datetime.now().isoformat()
@@ -392,21 +402,20 @@ class MultiModelRouter:
                 return response.choices[0].message.content
             
             elif model.startswith("claude"):
-                # Anthropic models
-                response = await client.messages.create(
+                # Anthropic models (version 0.7.8 uses completions API)
+                import anthropic
+                response = await client.completions.create(
                     model=model,
-                    max_tokens=rule.get("max_tokens", 2000),
+                    max_tokens_to_sample=rule.get("max_tokens", 2000),
                     temperature=rule.get("temperature", 0.7),
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
+                    prompt=f"{anthropic.HUMAN_PROMPT} {prompt}{anthropic.AI_PROMPT}"
                 )
                 
                 # Track usage and cost (Anthropic doesn't provide detailed usage in response)
                 self._track_request_cost(model_name, rule)
                 self._track_performance(model_name, start_time, True)
                 
-                return response.content[0].text
+                return response.completion
             
             elif model.startswith("gemini"):
                 # Google Gemini models
@@ -594,3 +603,4 @@ class MultiModelRouter:
             logger.info("Multi-model router cleaned up")
         except Exception as e:
             logger.error("Error cleaning up multi-model router", error=str(e))
+

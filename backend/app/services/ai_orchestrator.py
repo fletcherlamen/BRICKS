@@ -67,40 +67,48 @@ class AIOrchestrator:
         try:
             logger.info("Initializing AI Orchestrator")
             
-            # Initialize services in parallel for faster startup
-            tasks = []
+            # PHASE 1: Initialize core AI services first (these are dependencies)
+            core_tasks = []
             
             if settings.CREWAI_API_KEY:
-                tasks.append(self._init_crewai())
+                core_tasks.append(self._init_crewai())
             if settings.MEM0_API_KEY:
-                tasks.append(self._init_mem0())
+                core_tasks.append(self._init_mem0())
             if settings.DEVIN_API_KEY:
-                tasks.append(self._init_devin())
+                core_tasks.append(self._init_devin())
             if settings.COPILOT_STUDIO_API_KEY:
-                tasks.append(self._init_copilot())
+                core_tasks.append(self._init_copilot())
             if settings.GITHUB_COPILOT_TOKEN:
-                tasks.append(self._init_github_copilot())
+                core_tasks.append(self._init_github_copilot())
             
-            # Always initialize multi-model router
-            tasks.append(self._init_multi_model_router())
+            # Initialize multi-model router FIRST (critical dependency)
+            await self._init_multi_model_router()
+            logger.info("✅ Multi-Model Router initialized (with Real AI support)")
             
-            # Phase 3 - Strategic Intelligence Services (always initialize)
-            tasks.append(self._init_bricks_context())
-            tasks.append(self._init_revenue_analysis())
-            tasks.append(self._init_strategic_gap())
-            tasks.append(self._init_brick_priority())
-            tasks.append(self._init_constraint_prediction())
-            tasks.append(self._init_human_ai_collaboration())
-            tasks.append(self._init_strategic_intelligence())
+            # Wait for core services
+            if core_tasks:
+                await asyncio.gather(*core_tasks, return_exceptions=True)
             
-            # Phase 4 - Revenue Integration Loop (always initialize)
-            tasks.append(self._init_church_kit_connector())
-            tasks.append(self._init_global_sky_connector())
-            tasks.append(self._init_treasury_optimizer())
-            tasks.append(self._init_autonomous_brick_proposer())
+            # PHASE 2: Initialize services that depend on Multi-Model Router
+            dependent_tasks = []
             
-            # Wait for all services to initialize
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Phase 3 - Strategic Intelligence Services (need multi-model router)
+            dependent_tasks.append(self._init_bricks_context())
+            dependent_tasks.append(self._init_revenue_analysis())
+            dependent_tasks.append(self._init_strategic_gap())
+            dependent_tasks.append(self._init_brick_priority())
+            dependent_tasks.append(self._init_constraint_prediction())
+            dependent_tasks.append(self._init_human_ai_collaboration())
+            dependent_tasks.append(self._init_strategic_intelligence())
+            
+            # Phase 4 - Revenue Integration Loop (need multi-model router)
+            dependent_tasks.append(self._init_church_kit_connector())
+            dependent_tasks.append(self._init_global_sky_connector())
+            dependent_tasks.append(self._init_treasury_optimizer())
+            dependent_tasks.append(self._init_autonomous_brick_proposer())
+            
+            # Wait for all dependent services to initialize
+            results = await asyncio.gather(*dependent_tasks, return_exceptions=True)
             
             # Check for initialization errors
             for i, result in enumerate(results):
@@ -218,16 +226,17 @@ class AIOrchestrator:
             logger.error(f"Failed to initialize human-AI collaboration service: {str(e)}")
     
     async def _init_strategic_intelligence(self):
-        """Initialize strategic intelligence service"""
+        """Initialize strategic intelligence service with Real AI"""
         try:
             self.strategic_intelligence_service = StrategicIntelligenceService(
                 bricks_context_service=self.bricks_context_service,
                 revenue_analysis_service=self.revenue_analysis_service,
                 strategic_gap_service=self.strategic_gap_service,
                 brick_priority_service=self.brick_priority_service,
-                constraint_prediction_service=self.constraint_prediction_service
+                constraint_prediction_service=self.constraint_prediction_service,
+                multi_model_router=self.multi_model_router
             )
-            logger.info("Strategic intelligence service initialized")
+            logger.info("Strategic intelligence service initialized with Real AI support")
         except Exception as e:
             logger.error(f"Failed to initialize strategic intelligence service: {str(e)}")
     
@@ -259,16 +268,17 @@ class AIOrchestrator:
             logger.error(f"Failed to initialize Treasury Optimizer: {str(e)}")
     
     async def _init_autonomous_brick_proposer(self):
-        """Initialize Autonomous BRICK Proposer"""
+        """Initialize Autonomous BRICK Proposer with Real AI"""
         try:
             self.autonomous_brick_proposer = AutonomousBRICKProposer(
                 church_kit_connector=self.church_kit_connector,
                 global_sky_connector=self.global_sky_connector,
                 treasury_optimizer=self.treasury_optimizer,
                 strategic_intelligence=self.strategic_intelligence_service,
-                human_ai_collaboration=self.human_ai_collaboration_service
+                human_ai_collaboration=self.human_ai_collaboration_service,
+                multi_model_router=self.multi_model_router
             )
-            logger.info("Autonomous BRICK Proposer initialized")
+            logger.info("Autonomous BRICK Proposer initialized with Real AI support")
         except Exception as e:
             logger.error(f"Failed to initialize Autonomous BRICK Proposer: {str(e)}")
     
