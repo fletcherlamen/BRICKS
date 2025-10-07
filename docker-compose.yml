@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     container_name: brick_orchestration_backend
     env_file:
-      - env.unified
+      - .env
     environment:
       # Database URL - VPS PostgreSQL database
       - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@64.227.99.111:5432/brick_orchestration}
@@ -70,9 +70,9 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - env.unified
+      - .env
     environment:
-      # API URL - Use VPS backend which connects to VPS database
+      # API URL - Use VPS backend endpoints
       - REACT_APP_API_URL=http://64.227.99.111:8000
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
