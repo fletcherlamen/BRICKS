@@ -54,7 +54,7 @@ services:
       - brick_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://64.227.99.111:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -77,6 +77,10 @@ services:
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
       - PORT=3000
       - CHOKIDAR_USEPOLLING=true
+      # VPS API endpoint
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://64.227.99.111:8000}
+      - REACT_APP_VPS_IP=${REACT_APP_VPS_IP:-64.227.99.111}
+      - REACT_APP_VPS_BACKEND_PORT=${REACT_APP_VPS_BACKEND_PORT:-8000}
     volumes:
       - ./frontend:/app
       - /app/node_modules
