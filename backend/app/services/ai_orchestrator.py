@@ -16,6 +16,14 @@ from app.services.devin_service import DevinService
 from app.services.copilot_service import CopilotService
 from app.services.github_copilot_service import GitHubCopilotService
 from app.services.multi_model_router import MultiModelRouter
+# Phase 3 - Strategic Intelligence Services
+from app.services.bricks_context_service import BRICKSContextService
+from app.services.revenue_analysis_service import RevenueAnalysisService
+from app.services.strategic_gap_service import StrategicGapService
+from app.services.brick_priority_service import BRICKPriorityService
+from app.services.constraint_prediction_service import ConstraintPredictionService
+from app.services.strategic_intelligence_service import StrategicIntelligenceService
+from app.services.human_ai_collaboration_service import HumanAICollaborationService
 
 logger = structlog.get_logger(__name__)
 
@@ -24,12 +32,23 @@ class AIOrchestrator:
     """Main orchestrator for coordinating AI systems"""
     
     def __init__(self):
+        # Phase 2 Services
         self.crewai_service: Optional[CrewAIService] = None
         self.mem0_service: Optional[Mem0Service] = None
         self.devin_service: Optional[DevinService] = None
         self.copilot_service: Optional[CopilotService] = None
         self.github_copilot_service: Optional[GitHubCopilotService] = None
         self.multi_model_router: Optional[MultiModelRouter] = None
+        
+        # Phase 3 Services - Strategic Intelligence Layer
+        self.bricks_context_service: Optional[BRICKSContextService] = None
+        self.revenue_analysis_service: Optional[RevenueAnalysisService] = None
+        self.strategic_gap_service: Optional[StrategicGapService] = None
+        self.brick_priority_service: Optional[BRICKPriorityService] = None
+        self.constraint_prediction_service: Optional[ConstraintPredictionService] = None
+        self.strategic_intelligence_service: Optional[StrategicIntelligenceService] = None
+        self.human_ai_collaboration_service: Optional[HumanAICollaborationService] = None
+        
         self.initialized = False
         
     async def initialize(self):
@@ -53,6 +72,15 @@ class AIOrchestrator:
             
             # Always initialize multi-model router
             tasks.append(self._init_multi_model_router())
+            
+            # Phase 3 - Strategic Intelligence Services (always initialize)
+            tasks.append(self._init_bricks_context())
+            tasks.append(self._init_revenue_analysis())
+            tasks.append(self._init_strategic_gap())
+            tasks.append(self._init_brick_priority())
+            tasks.append(self._init_constraint_prediction())
+            tasks.append(self._init_human_ai_collaboration())
+            tasks.append(self._init_strategic_intelligence())
             
             # Wait for all services to initialize
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -123,6 +151,68 @@ class AIOrchestrator:
             logger.info("Multi-model router initialized")
         except Exception as e:
             logger.error(f"Failed to initialize multi-model router: {str(e)}")
+    
+    async def _init_bricks_context(self):
+        """Initialize BRICKS context service"""
+        try:
+            self.bricks_context_service = BRICKSContextService()
+            logger.info("BRICKS context service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize BRICKS context service: {str(e)}")
+    
+    async def _init_revenue_analysis(self):
+        """Initialize revenue analysis service"""
+        try:
+            self.revenue_analysis_service = RevenueAnalysisService()
+            logger.info("Revenue analysis service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize revenue analysis service: {str(e)}")
+    
+    async def _init_strategic_gap(self):
+        """Initialize strategic gap service"""
+        try:
+            self.strategic_gap_service = StrategicGapService()
+            logger.info("Strategic gap service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize strategic gap service: {str(e)}")
+    
+    async def _init_brick_priority(self):
+        """Initialize BRICK priority service"""
+        try:
+            self.brick_priority_service = BRICKPriorityService()
+            logger.info("BRICK priority service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize BRICK priority service: {str(e)}")
+    
+    async def _init_constraint_prediction(self):
+        """Initialize constraint prediction service"""
+        try:
+            self.constraint_prediction_service = ConstraintPredictionService()
+            logger.info("Constraint prediction service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize constraint prediction service: {str(e)}")
+    
+    async def _init_human_ai_collaboration(self):
+        """Initialize human-AI collaboration service"""
+        try:
+            self.human_ai_collaboration_service = HumanAICollaborationService()
+            logger.info("Human-AI collaboration service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize human-AI collaboration service: {str(e)}")
+    
+    async def _init_strategic_intelligence(self):
+        """Initialize strategic intelligence service"""
+        try:
+            self.strategic_intelligence_service = StrategicIntelligenceService(
+                bricks_context_service=self.bricks_context_service,
+                revenue_analysis_service=self.revenue_analysis_service,
+                strategic_gap_service=self.strategic_gap_service,
+                brick_priority_service=self.brick_priority_service,
+                constraint_prediction_service=self.constraint_prediction_service
+            )
+            logger.info("Strategic intelligence service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize strategic intelligence service: {str(e)}")
     
     async def orchestrate_task(
         self,
@@ -318,6 +408,7 @@ class AIOrchestrator:
             "services": {}
         }
         
+        # Phase 2 Services
         if self.crewai_service:
             status["services"]["crewai"] = await self.crewai_service.get_status()
         if self.mem0_service:
@@ -330,6 +421,22 @@ class AIOrchestrator:
             status["services"]["github_copilot"] = await self.github_copilot_service.get_status()
         if self.multi_model_router:
             status["services"]["multi_model_router"] = await self.multi_model_router.get_status()
+        
+        # Phase 3 Services - Strategic Intelligence
+        if self.bricks_context_service:
+            status["services"]["bricks_context"] = await self.bricks_context_service.get_status()
+        if self.revenue_analysis_service:
+            status["services"]["revenue_analysis"] = await self.revenue_analysis_service.get_status()
+        if self.strategic_gap_service:
+            status["services"]["strategic_gap"] = await self.strategic_gap_service.get_status()
+        if self.brick_priority_service:
+            status["services"]["brick_priority"] = await self.brick_priority_service.get_status()
+        if self.constraint_prediction_service:
+            status["services"]["constraint_prediction"] = await self.constraint_prediction_service.get_status()
+        if self.human_ai_collaboration_service:
+            status["services"]["human_ai_collaboration"] = await self.human_ai_collaboration_service.get_status()
+        if self.strategic_intelligence_service:
+            status["services"]["strategic_intelligence"] = await self.strategic_intelligence_service.get_status()
         
         return status
     

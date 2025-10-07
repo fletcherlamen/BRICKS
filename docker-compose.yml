@@ -72,12 +72,7 @@ services:
     env_file:
       - .env
     environment:
-      # API URL - Use VPS backend endpoints
-      - REACT_APP_API_URL=http://64.227.99.111:8000
-      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
-      - REACT_APP_VPS_IP=${VPS_IP:-64.227.99.111}
-      - REACT_APP_VPS_BACKEND_PORT=${VPS_BACKEND_PORT:-8000}
-      - REACT_APP_VPS_FRONTEND_PORT=${VPS_FRONTEND_PORT:-3000}
+      # React development settings
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
       - PORT=3000

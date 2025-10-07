@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic
 
 api_router = APIRouter()
 
@@ -67,4 +67,11 @@ api_router.include_router(
     database.router,
     prefix="/database",
     tags=["database-health"]
+)
+
+# Strategic Intelligence Layer (Phase 3 Completion)
+api_router.include_router(
+    strategic.router,
+    prefix="/strategic",
+    tags=["strategic-intelligence"]
 )

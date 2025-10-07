@@ -39,14 +39,16 @@ async def lifespan(app: FastAPI):
     # Initialize AI services
     try:
         from app.services.ai_orchestrator import AIOrchestrator
-        from app.api.v1.endpoints.dashboard import set_orchestrator
+        from app.api.v1.endpoints.dashboard import set_orchestrator as set_dashboard_orchestrator
+        from app.api.v1.endpoints.strategic import set_orchestrator as set_strategic_orchestrator
         
         orchestrator = AIOrchestrator()
         await orchestrator.initialize()
         app.state.orchestrator = orchestrator
         
-        # Set orchestrator for dashboard
-        set_orchestrator(orchestrator)
+        # Set orchestrator for dashboard and strategic endpoints
+        set_dashboard_orchestrator(orchestrator)
+        set_strategic_orchestrator(orchestrator)
         
         logger.info("AI Orchestrator initialized successfully")
     except Exception as e:
