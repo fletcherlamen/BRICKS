@@ -65,13 +65,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS - Dynamic VPS configuration
-    CORS_ORIGINS: List[str] = [
-        # Local development
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000",
-    ]
+    CORS_ORIGINS: Optional[List[str]] = None
     
     # CORS allow all origins (set to False for production security)
     CORS_ALLOW_ALL_ORIGINS: bool = True
@@ -100,13 +94,20 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v):
+        if v is None or v == "":
+            return []
         if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
         return v
     
     def get_cors_origins(self) -> List[str]:
         """Get CORS origins based on VPS configuration"""
-        origins = self.CORS_ORIGINS.copy()
+        origins = self.CORS_ORIGINS.copy() if self.CORS_ORIGINS else [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8000",
+        ]
         
         # Add VPS IP addresses
         origins.extend([
