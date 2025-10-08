@@ -79,34 +79,34 @@ class RevenueAnalysisService:
         self,
         context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Analyze revenue opportunities across BRICKS ecosystem"""
+        """Analyze revenue opportunities from VPS database"""
         try:
+            # Load revenue opportunities from VPS database
+            from app.models.strategic import RevenueOpportunity
+            
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(RevenueOpportunity).order_by(RevenueOpportunity.potential_revenue.desc())
+                )
+                db_opportunities = result.scalars().all()
+            
+            # Convert database records to response format
             opportunities = []
+            for db_opp in db_opportunities:
+                opportunities.append({
+                    "type": db_opp.opportunity_type or "general",
+                    "name": db_opp.name,
+                    "description": db_opp.description,
+                    "potential_revenue": db_opp.potential_revenue or 0,
+                    "probability": db_opp.probability or 0.5,
+                    "effort_level": db_opp.effort_level or "medium",
+                    "time_to_revenue": db_opp.time_to_revenue or "unknown",
+                    "action_items": db_opp.action_items or [],
+                    "opportunity_id": db_opp.opportunity_id,
+                    "status": db_opp.status
+                })
             
-            # Opportunity 1: Cross-selling between existing BRICKs
-            cross_sell = self._analyze_cross_selling()
-            if cross_sell["potential_revenue"] > 0:
-                opportunities.append(cross_sell)
-            
-            # Opportunity 2: Upselling existing customers
-            upsell = self._analyze_upselling()
-            if upsell["potential_revenue"] > 0:
-                opportunities.append(upsell)
-            
-            # Opportunity 3: New BRICK development
-            new_brick = self._analyze_new_brick_opportunity()
-            if new_brick["potential_revenue"] > 0:
-                opportunities.append(new_brick)
-            
-            # Opportunity 4: Market expansion
-            market_expansion = self._analyze_market_expansion()
-            if market_expansion["potential_revenue"] > 0:
-                opportunities.append(market_expansion)
-            
-            # Opportunity 5: Revenue optimization
-            optimization = self._analyze_revenue_optimization()
-            if optimization["potential_revenue"] > 0:
-                opportunities.append(optimization)
+            logger.info("Revenue opportunities loaded from VPS database", count=len(opportunities))
             
             # Rank opportunities by potential revenue
             opportunities.sort(key=lambda x: x["potential_revenue"], reverse=True)

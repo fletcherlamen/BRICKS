@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks
 
 api_router = APIRouter()
 
@@ -81,4 +81,11 @@ api_router.include_router(
     revenue_integration.router,
     prefix="/revenue",
     tags=["revenue-integration"]
+)
+
+# BRICKS Management (VPS Database)
+api_router.include_router(
+    bricks.router,
+    prefix="/bricks",
+    tags=["bricks-management"]
 )

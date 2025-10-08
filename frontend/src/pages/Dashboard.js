@@ -32,13 +32,13 @@ const Dashboard = () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       
-      // Fetch real data from VPS database
-      const [sessionsResponse, memoryResponse, statusResponse, ecosystemResponse, revenueOppResponse] = await Promise.allSettled([
-        fetch(`${API_URL}/api/v1/orchestration/sessions`),
-        fetch(`${API_URL}/api/v1/memory/stats`),
-        fetch(`${API_URL}/api/v1/orchestration/status`),
-        fetch(`${API_URL}/api/v1/strategic/ecosystem`),
-        fetch(`${API_URL}/api/v1/strategic/revenue-opportunities`)
+      // Fetch real data from VPS database tables as specified
+      const [sessionsResponse, memoryResponse, statusResponse, bricksResponse, revenueOppResponse] = await Promise.allSettled([
+        fetch(`${API_URL}/api/v1/orchestration/sessions`),  // From orchestration_sessions table
+        fetch(`${API_URL}/api/v1/memory/stats`),            // From memories table
+        fetch(`${API_URL}/api/v1/orchestration/status`),    // From orchestration_sessions + memories tables
+        fetch(`${API_URL}/api/v1/bricks`),                  // From bricks table
+        fetch(`${API_URL}/api/v1/strategic/revenue-opportunities`)  // From revenue_opportunities table
       ]);
       
       let activeSessions = 0;
@@ -47,13 +47,13 @@ const Dashboard = () => {
       let systemHealth = 'healthy';
       let revenueOpportunities = 0;
       
-      // Process sessions data from VPS database
+      // Process sessions data from VPS database (orchestration_sessions table)
       if (sessionsResponse.status === 'fulfilled' && sessionsResponse.value.ok) {
         const sessionsData = await sessionsResponse.value.json();
         activeSessions = sessionsData.sessions?.length || 0;
       }
       
-      // Process memory data from VPS database
+      // Process memory data from VPS database (memories table)
       if (memoryResponse.status === 'fulfilled' && memoryResponse.value.ok) {
         const memoryData = await memoryResponse.value.json();
         memoryCount = memoryData.statistics?.total_memories || 0;
@@ -65,18 +65,16 @@ const Dashboard = () => {
         systemHealth = statusData.orchestration_status === 'operational' ? 'healthy' : 'degraded';
       }
       
-      // Get real BRICKS count from VPS database
-      if (ecosystemResponse.status === 'fulfilled' && ecosystemResponse.value.ok) {
-        const ecosystemData = await ecosystemResponse.value.json();
-        const existingBricks = ecosystemData.ecosystem?.existing_bricks || [];
-        totalBricks = existingBricks.length;
+      // Get real BRICKS count from VPS database (bricks table)
+      if (bricksResponse.status === 'fulfilled' && bricksResponse.value.ok) {
+        const bricksData = await bricksResponse.value.json();
+        totalBricks = bricksData.count || bricksData.bricks?.length || 0;
       }
       
-      // Get real revenue opportunities count from VPS database
+      // Get real revenue opportunities count from VPS database (revenue_opportunities table)
       if (revenueOppResponse.status === 'fulfilled' && revenueOppResponse.value.ok) {
         const revenueData = await revenueOppResponse.value.json();
-        const opportunities = revenueData.revenue_opportunities?.identified_opportunities || [];
-        revenueOpportunities = opportunities.length;
+        revenueOpportunities = revenueData.total_opportunities || revenueData.opportunities?.length || 0;
       }
       
       setStats({

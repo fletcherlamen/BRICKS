@@ -33,39 +33,45 @@ class BrickResponse(BaseModel):
 
 @router.get("/")
 async def list_bricks():
-    """Get list of all BRICKS"""
+    """Get list of all BRICKS from VPS database"""
     
     try:
-        # Mock data for now - would query database in production
-        bricks = [
-            {
-                "brick_id": "brick_001",
-                "name": "Church Kit Generator API",
-                "description": "Automated legal formation services",
-                "category": "automation",
-                "status": "production",
-                "priority": 8,
-                "revenue_potential": 15000
-            },
-            {
-                "brick_id": "brick_002", 
-                "name": "Global Sky AI Optimizer",
-                "description": "Business performance optimization",
-                "category": "analysis",
-                "status": "development",
-                "priority": 7,
-                "revenue_potential": 25000
-            }
-        ]
+        # Query VPS database for real BRICKS
+        from app.core.database import AsyncSessionLocal
+        from app.models.brick import Brick
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Brick).order_by(Brick.created_at.desc())
+            )
+            db_bricks = result.scalars().all()
+        
+        # Convert to response format
+        bricks = []
+        for brick in db_bricks:
+            bricks.append({
+                "brick_id": brick.brick_id,
+                "name": brick.name,
+                "description": brick.description,
+                "category": brick.category,
+                "status": brick.status,
+                "priority": brick.priority,
+                "revenue_potential": brick.revenue_potential,
+                "created_at": brick.created_at.isoformat() if brick.created_at else None
+            })
+        
+        logger.info("BRICKs loaded from VPS database", count=len(bricks))
         
         return {
             "bricks": bricks,
             "count": len(bricks),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "data_source": "vps_database"
         }
         
     except Exception as e:
-        logger.error("Failed to list BRICKS", error=str(e))
+        logger.error("Failed to list BRICKS from VPS database", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

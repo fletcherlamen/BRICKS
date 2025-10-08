@@ -80,8 +80,20 @@ class StrategicGapService:
         self,
         bricks_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Detect strategic gaps in BRICKS ecosystem"""
+        """Detect strategic gaps from VPS database"""
         try:
+            # Load strategic gaps from VPS database
+            from app.core.database import AsyncSessionLocal
+            from app.models.strategic import StrategicGap
+            from sqlalchemy import select
+            
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(StrategicGap).where(StrategicGap.status != 'completed')
+                )
+                db_gaps = result.scalars().all()
+            
+            # Group gaps by type
             detected_gaps = {
                 "capability_gaps": [],
                 "market_gaps": [],
@@ -90,57 +102,31 @@ class StrategicGapService:
                 "competitive_gaps": []
             }
             
-            # Analyze capability gaps
-            for gap_rule in self.gap_detection_rules["capability_gaps"]:
-                coverage_level = len(gap_rule["current_coverage"]) / len(gap_rule["desired_coverage"])
+            for db_gap in db_gaps:
+                gap_data = {
+                    "gap_id": db_gap.gap_id,
+                    "title": db_gap.title,
+                    "description": db_gap.description,
+                    "gap_type": db_gap.gap_type,
+                    "severity": db_gap.severity,
+                    "impact_assessment": db_gap.impact_assessment,
+                    "suggested_solutions": db_gap.suggested_solutions,
+                    "status": db_gap.status,
+                    "priority": db_gap.severity
+                }
                 
-                if coverage_level < 0.5:
-                    detected_gaps["capability_gaps"].append({
-                        "category": gap_rule["category"],
-                        "gap_name": gap_rule["name"],
-                        "importance": gap_rule["importance"],
-                        "coverage_level": f"{coverage_level*100:.1f}%",
-                        "missing_capabilities": [
-                            cap for cap in gap_rule["desired_coverage"]
-                            if cap not in gap_rule["current_coverage"]
-                        ],
-                        "priority": "high" if gap_rule["importance"] == "high" else "medium"
-                    })
+                # Categorize by gap type
+                gap_type = db_gap.gap_type or "competitive_gaps"
+                if gap_type in detected_gaps:
+                    detected_gaps[gap_type].append(gap_data)
+                else:
+                    detected_gaps["competitive_gaps"].append(gap_data)
             
-            # Analyze market gaps
-            for market_gap in self.gap_detection_rules["market_gaps"]:
-                if market_gap["current_penetration"] < 0.10:  # Less than 10% penetration
-                    detected_gaps["market_gaps"].append({
-                        "market_segment": market_gap["segment"],
-                        "current_penetration": f"{market_gap['current_penetration']*100:.1f}%",
-                        "market_size": market_gap["market_size"],
-                        "revenue_potential": market_gap["revenue_potential"],
-                        "competition_level": market_gap["competition"],
-                        "priority": "high" if market_gap["revenue_potential"] > 100000 else "medium"
-                    })
+            logger.info("Strategic gaps loaded from VPS database", total_gaps=len(db_gaps))
             
-            # Analyze revenue gaps
-            for revenue_gap in self.gap_detection_rules["revenue_gaps"]:
-                detected_gaps["revenue_gaps"].append({
-                    "gap_type": revenue_gap["gap_type"],
-                    "description": revenue_gap["description"],
-                    "impact": revenue_gap["impact"],
-                    "potential_revenue": revenue_gap["potential_revenue"],
-                    "priority": "high" if revenue_gap["impact"] == "high" else "medium"
-                })
-            
-            # Analyze technology gaps
-            detected_gaps["technology_gaps"] = self._detect_technology_gaps(bricks_context)
-            
-            # Analyze competitive gaps
-            detected_gaps["competitive_gaps"] = self._detect_competitive_gaps()
-            
-            # Calculate total gap impact
-            total_gap_count = sum(len(gaps) for gaps in detected_gaps.values())
-            high_priority_gaps = sum(
-                sum(1 for gap in gaps if gap.get("priority") == "high")
-                for gaps in detected_gaps.values()
-            )
+            # Calculate total gap impact from VPS data
+            total_gap_count = len(db_gaps)
+            high_priority_gaps = sum(1 for gap in db_gaps if gap.severity in ['high', 'critical'])
             
             return {
                 "status": "success",
