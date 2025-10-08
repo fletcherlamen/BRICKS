@@ -385,11 +385,20 @@ class CrewAIService:
     async def get_status(self) -> Dict[str, Any]:
         """Get CrewAI service status"""
         
+        if not settings.CREWAI_API_KEY:
+            return {
+                "status": "mock_mode",
+                "mode": "mock",
+                "api_key_configured": False,
+                "message": "No API key - using enhanced mock mode"
+            }
+        
         return {
             "status": "healthy" if self.initialized else "not_initialized",
+            "mode": "real_ai" if self.initialized else "mock",
             "agents_count": len(self.agents),
             "crew_initialized": self.crew is not None,
-            "api_key_configured": bool(settings.CREWAI_API_KEY)
+            "api_key_configured": True
         }
     
     async def cleanup(self):

@@ -286,22 +286,39 @@ async def gap_analysis(
 async def get_orchestration_status(
     orchestrator = Depends(get_orchestrator)
 ):
-    """Get orchestration system status"""
+    """Get orchestration system status from VPS database"""
     
     try:
-        session_count = len(orchestrator.sessions)
-        memory_count = len(orchestrator.memories)
+        # Get real counts from VPS database
+        from app.core.database import AsyncSessionLocal
+        from app.models.orchestration import OrchestrationSession
+        from app.models.memory import Memory
+        from sqlalchemy import select, func
+        
+        async with AsyncSessionLocal() as db:
+            # Count sessions from VPS database
+            session_count_result = await db.execute(
+                select(func.count(OrchestrationSession.id))
+            )
+            session_count = session_count_result.scalar() or 0
+            
+            # Count memories from VPS database
+            memory_count_result = await db.execute(
+                select(func.count(Memory.id))
+            )
+            memory_count = memory_count_result.scalar() or 0
         
         return {
             "orchestration_status": "operational",
             "sessions_count": session_count,
             "memories_count": memory_count,
             "system_status": "healthy",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "data_source": "vps_database"
         }
         
     except Exception as e:
-        logger.error("Failed to get orchestration status", error=str(e))
+        logger.error("Failed to get orchestration status from VPS database", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

@@ -330,8 +330,21 @@ class Mem0Service:
     async def get_status(self) -> Dict[str, Any]:
         """Get Mem0 service status"""
         
+        if not settings.MEM0_API_KEY:
+            return {
+                "status": "mock_mode",
+                "mode": "mock",
+                "api_key_configured": False,
+                "message": "No API key - using VPS database memory only"
+            }
+        
         if not self.initialized:
-            return {"status": "not_initialized"}
+            return {
+                "status": "mock_mode",
+                "mode": "mock",
+                "api_key_configured": True,
+                "message": "Initialization failed - using VPS database memory"
+            }
         
         try:
             # Test memory operations
@@ -339,8 +352,9 @@ class Mem0Service:
             
             return {
                 "status": "healthy",
-                "api_key_configured": bool(settings.MEM0_API_KEY),
-                "client_initialized": self.client is not None,
+                "mode": "real_ai",
+                "api_key_configured": True,
+                "client_initialized": True,
                 "test_query_successful": True
             }
             
@@ -348,6 +362,8 @@ class Mem0Service:
             logger.error("Mem0 health check failed", error=str(e))
             return {
                 "status": "unhealthy",
+                "mode": "error",
+                "api_key_configured": True,
                 "error": str(e)
             }
     
