@@ -138,22 +138,40 @@ class GitHubCopilotService:
     async def get_status(self) -> Dict[str, Any]:
         """Get GitHub Copilot service status"""
         
+        if not settings.GITHUB_COPILOT_TOKEN:
+            return {
+                "status": "critical",
+                "mode": "mock",
+                "api_key_configured": False,
+                "message": "API token not configured - service not operational",
+                "error": "Missing GITHUB_COPILOT_TOKEN"
+            }
+        
         if not self.initialized:
-            return {"status": "not_initialized"}
+            return {
+                "status": "error",
+                "mode": "failed",
+                "api_key_configured": True,
+                "message": "Service initialization failed",
+                "error": "Failed to initialize GitHub Copilot"
+            }
         
         try:
             status = await self.client.get_status()
             
             return {
                 "status": "healthy",
-                "api_key_configured": bool(settings.GITHUB_COPILOT_TOKEN),
+                "mode": "real_ai",
+                "api_key_configured": True,
                 "service_status": status
             }
             
         except Exception as e:
             logger.error("GitHub Copilot health check failed", error=str(e))
             return {
-                "status": "unhealthy",
+                "status": "error",
+                "mode": "failed",
+                "api_key_configured": True,
                 "error": str(e)
             }
     

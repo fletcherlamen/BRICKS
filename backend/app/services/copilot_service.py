@@ -188,22 +188,40 @@ class CopilotService:
     async def get_status(self) -> Dict[str, Any]:
         """Get Copilot Studio service status"""
         
+        if not settings.COPILOT_STUDIO_API_KEY:
+            return {
+                "status": "critical",
+                "mode": "mock",
+                "api_key_configured": False,
+                "message": "API key not configured - service not operational",
+                "error": "Missing COPILOT_STUDIO_API_KEY"
+            }
+        
         if not self.initialized:
-            return {"status": "not_initialized"}
+            return {
+                "status": "error",
+                "mode": "failed",
+                "api_key_configured": True,
+                "message": "Service initialization failed",
+                "error": "Failed to initialize Copilot Studio"
+            }
         
         try:
             status = await self.client.get_status()
             
             return {
                 "status": "healthy",
-                "api_key_configured": bool(settings.COPILOT_STUDIO_API_KEY),
+                "mode": "real_ai",
+                "api_key_configured": True,
                 "service_status": status
             }
             
         except Exception as e:
             logger.error("Copilot Studio health check failed", error=str(e))
             return {
-                "status": "unhealthy",
+                "status": "error",
+                "mode": "failed",
+                "api_key_configured": True,
                 "error": str(e)
             }
     

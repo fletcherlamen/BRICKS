@@ -332,18 +332,20 @@ class Mem0Service:
         
         if not settings.MEM0_API_KEY:
             return {
-                "status": "mock_mode",
-                "mode": "mock",
+                "status": "critical",
+                "mode": "fallback",
                 "api_key_configured": False,
-                "message": "No API key - using VPS database memory only"
+                "message": "API key not configured - using VPS database only (limited functionality)",
+                "error": "Missing MEM0_API_KEY"
             }
         
         if not self.initialized:
             return {
-                "status": "mock_mode",
-                "mode": "mock",
+                "status": "error",
+                "mode": "fallback",
                 "api_key_configured": True,
-                "message": "Initialization failed - using VPS database memory"
+                "message": "Mem0 initialization failed - using VPS database fallback",
+                "error": "Service initialization failed"
             }
         
         try:
@@ -361,8 +363,8 @@ class Mem0Service:
         except Exception as e:
             logger.error("Mem0 health check failed", error=str(e))
             return {
-                "status": "unhealthy",
-                "mode": "error",
+                "status": "error",
+                "mode": "failed",
                 "api_key_configured": True,
                 "error": str(e)
             }

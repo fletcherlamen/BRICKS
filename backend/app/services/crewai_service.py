@@ -387,15 +387,25 @@ class CrewAIService:
         
         if not settings.CREWAI_API_KEY:
             return {
-                "status": "mock_mode",
+                "status": "critical",
                 "mode": "mock",
                 "api_key_configured": False,
-                "message": "No API key - using enhanced mock mode"
+                "message": "API key not configured - service not operational",
+                "error": "Missing CREWAI_API_KEY"
+            }
+        
+        if not self.initialized:
+            return {
+                "status": "error",
+                "mode": "failed",
+                "api_key_configured": True,
+                "message": "Service initialization failed",
+                "error": "Failed to initialize CrewAI service"
             }
         
         return {
-            "status": "healthy" if self.initialized else "not_initialized",
-            "mode": "real_ai" if self.initialized else "mock",
+            "status": "healthy",
+            "mode": "real_ai",
             "agents_count": len(self.agents),
             "crew_initialized": self.crew is not None,
             "api_key_configured": True
