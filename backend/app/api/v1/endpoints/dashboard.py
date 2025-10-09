@@ -140,8 +140,8 @@ async def get_services_status():
         ]
         
         for service_id, service_name, api_key in services_to_check:
-            # Check if API key is configured
-            api_key_configured = bool(api_key and api_key.strip() != "")
+            # Check if API key is configured and not a placeholder
+            api_key_configured = bool(api_key and api_key.strip() != "" and not api_key.startswith("your-"))
             
             # Special handling for Mem0 (has compatibility issues)
             if service_id == "mem0" and api_key_configured:

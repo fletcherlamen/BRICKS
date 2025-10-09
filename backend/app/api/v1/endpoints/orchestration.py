@@ -423,7 +423,40 @@ async def get_orchestration_sessions(
     """Get orchestration sessions with status, goal, and outputs - BRICK 2 Automation Ready"""
     
     try:
-        sessions = await orchestrator.get_session_history(limit=limit)
+        # Get sessions from VPS database
+        from app.core.database import AsyncSessionLocal
+        from app.models.orchestration import OrchestrationSession
+        from sqlalchemy import select, desc
+        
+        async with AsyncSessionLocal() as db:
+            # Build query with filters
+            query = select(OrchestrationSession).order_by(desc(OrchestrationSession.created_at))
+            
+            if limit:
+                query = query.limit(limit)
+            
+            result = await db.execute(query)
+            db_sessions = result.scalars().all()
+        
+        # Convert database sessions to dict format
+        sessions = []
+        for session in db_sessions:
+            session_dict = {
+                "session_id": session.session_id,
+                "run_id": f"run_{session.id}",  # Generate run_id from session id
+                "goal": session.goal or "No goal specified",
+                "task_type": session.context.get("task_type", "unknown") if session.context else "unknown",
+                "status": session.status,
+                "confidence": session.context.get("confidence", 0.0) if session.context else 0.0,
+                "execution_time_ms": session.context.get("execution_time_ms", 0) if session.context else 0,
+                "created_at": session.created_at.isoformat(),
+                "completed_at": session.updated_at.isoformat() if session.updated_at else None,
+                "context": session.context or {},
+                "analysis": session.context.get("orchestration_results", {}) if session.context else {},
+                "real_systems_built": session.context.get("real_systems_built", {}) if session.context else {},
+                "ai_systems_used": session.context.get("ai_systems_used", []) if session.context else []
+            }
+            sessions.append(session_dict)
         
         # Filter sessions if requested
         if status_filter:

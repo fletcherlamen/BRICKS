@@ -137,9 +137,13 @@ class AIOrchestrator:
         try:
             self.mem0_service = Mem0Service()
             await self.mem0_service.initialize()
-            logger.info("Mem0 service initialized")
+            if self.mem0_service.initialized:
+                logger.info("Mem0 service initialized successfully")
+            else:
+                logger.info("Mem0 service running in mock mode")
         except Exception as e:
-            raise Mem0Error(f"Failed to initialize Mem0: {str(e)}")
+            logger.warning(f"Mem0 service initialization failed, continuing with mock mode: {str(e)}")
+            # Don't raise error - allow service to continue in mock mode
     
     async def _init_devin(self):
         """Initialize Devin AI service"""
@@ -304,7 +308,10 @@ class AIOrchestrator:
         try:
             # Store context in memory
             if self.mem0_service:
-                await self.mem0_service.store_context(session_id, context)
+                try:
+                    await self.mem0_service.store_context(session_id, context)
+                except Exception as e:
+                    logger.warning(f"Failed to store context in Mem0, continuing without memory: {str(e)}")
             
             # Route task to appropriate AI systems
             results = {}
@@ -323,7 +330,10 @@ class AIOrchestrator:
             
             # Store results in memory
             if self.mem0_service:
-                await self.mem0_service.store_result(session_id, results)
+                try:
+                    await self.mem0_service.store_result(session_id, results)
+                except Exception as e:
+                    logger.warning(f"Failed to store results in Mem0, continuing without memory: {str(e)}")
             
             logger.info("Orchestrated task completed successfully", session_id=session_id)
             return results
@@ -404,7 +414,7 @@ class AIOrchestrator:
                 results["revenue_opportunities"] = {"error": str(e)}
         
         # Step 4: Mem0 Service - Store orchestration results
-        if self.mem0_service:
+        if self.mem0_service and self.mem0_service.initialized:
             try:
                 logger.info("Agent 4: Mem0 Service storing orchestration context")
                 agents_involved.append("mem0")
@@ -420,7 +430,9 @@ class AIOrchestrator:
                 
                 logger.info("Mem0 Service stored context successfully")
             except Exception as e:
-                logger.error("Mem0 Service failed", error=str(e))
+                logger.warning(f"Mem0 Service failed, continuing without memory storage: {str(e)}")
+        else:
+            logger.info("Mem0 Service not available, skipping memory storage")
         
         # Synthesize results from all agents
         results["synthesis"] = {
@@ -521,11 +533,18 @@ class AIOrchestrator:
             results["analysis"]["business"] = business_analysis
         
         # Use Mem0 to find similar successful strategies
-        if self.mem0_service:
-            similar_strategies = await self.mem0_service.find_similar_strategies(
-                goal, context
-            )
-            results["analysis"]["similar_strategies"] = similar_strategies
+        if self.mem0_service and self.mem0_service.initialized:
+            try:
+                similar_strategies = await self.mem0_service.find_similar_strategies(
+                    goal, context
+                )
+                results["analysis"]["similar_strategies"] = similar_strategies
+            except Exception as e:
+                logger.warning(f"Mem0 find_similar_strategies failed, continuing without: {str(e)}")
+                results["analysis"]["similar_strategies"] = {"error": "Mem0 not available"}
+        else:
+            logger.info("Mem0 service not available, skipping similar strategies")
+            results["analysis"]["similar_strategies"] = {"message": "Mem0 service not available"}
         
         return results
     
