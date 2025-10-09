@@ -22,6 +22,7 @@ const Dashboard = () => {
     systemHealth: 'healthy'
   });
   const [recentActivities, setRecentActivities] = useState([]);
+  const [serviceStatuses, setServiceStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,12 +34,13 @@ const Dashboard = () => {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       
       // Fetch real data from VPS database tables as specified
-      const [sessionsResponse, memoryResponse, statusResponse, bricksResponse, revenueOppResponse] = await Promise.allSettled([
+      const [sessionsResponse, memoryResponse, statusResponse, bricksResponse, revenueOppResponse, servicesResponse] = await Promise.allSettled([
         fetch(`${API_URL}/api/v1/orchestration/sessions`),  // From orchestration_sessions table
         fetch(`${API_URL}/api/v1/memory/stats`),            // From memories table
         fetch(`${API_URL}/api/v1/orchestration/status`),    // From orchestration_sessions + memories tables
         fetch(`${API_URL}/api/v1/bricks`),                  // From bricks table
-        fetch(`${API_URL}/api/v1/strategic/revenue-opportunities`)  // From revenue_opportunities table
+        fetch(`${API_URL}/api/v1/strategic/revenue-opportunities`),  // From revenue_opportunities table
+        fetch(`${API_URL}/api/v1/dashboard/services`)       // Service statuses with API key info
       ]);
       
       let activeSessions = 0;
@@ -77,12 +79,21 @@ const Dashboard = () => {
         revenueOpportunities = revenueData.total_opportunities || revenueData.opportunities?.length || 0;
       }
       
+      // Process service statuses
+      let services = [];
+      if (servicesResponse.status === 'fulfilled' && servicesResponse.value.ok) {
+        const servicesData = await servicesResponse.value.json();
+        services = servicesData.data?.services || [];
+      }
+      
       setStats({
         activeSessions,
         totalBricks,
         revenueOpportunities,
         systemHealth
       });
+      
+      setServiceStatuses(services);
       
       // Process recent activities from sessions
       if (sessionsResponse.status === 'fulfilled' && sessionsResponse.value.ok) {
@@ -326,22 +337,42 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold text-gray-900">System Status</h3>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">AI Orchestrator</span>
-                <span className="status-healthy">Healthy</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">CrewAI</span>
-                <span className="status-healthy">Healthy</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Mem0.ai</span>
-                <span className="status-healthy">Healthy</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Multi-Model Router</span>
-                <span className="status-healthy">Healthy</span>
-              </div>
+              {serviceStatuses.map((service, index) => {
+                const getStatusClass = (status) => {
+                  switch (status) {
+                    case 'healthy':
+                      return 'status-healthy';
+                    case 'warning':
+                      return 'status-warning';
+                    case 'critical':
+                      return 'status-error';
+                    default:
+                      return 'status-unknown';
+                  }
+                };
+                
+                const getStatusText = (status) => {
+                  switch (status) {
+                    case 'healthy':
+                      return 'Healthy';
+                    case 'warning':
+                      return 'Warning';
+                    case 'critical':
+                      return 'Critical';
+                    default:
+                      return 'Unknown';
+                  }
+                };
+                
+                return (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">{service.service_name}</span>
+                    <span className={getStatusClass(service.status)}>
+                      {getStatusText(service.status)}
+                    </span>
+                  </div>
+                );
+              })}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Database</span>
                 <span className="status-healthy">Connected</span>

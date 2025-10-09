@@ -21,100 +21,74 @@ const Bricks = () => {
     fetchBrickData();
   }, []);
 
+  const fetchOpportunitiesAndGaps = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      
+      // Fetch opportunities and gaps from VPS database
+      const [opportunitiesResponse, gapsResponse] = await Promise.allSettled([
+        fetch(`${API_URL}/api/v1/strategic/revenue-opportunities`),
+        fetch(`${API_URL}/api/v1/strategic/strategic-gaps`)
+      ]);
+
+      // Process opportunities
+      if (opportunitiesResponse.status === 'fulfilled' && opportunitiesResponse.value.ok) {
+        const opportunitiesData = await opportunitiesResponse.value.json();
+        setOpportunities(opportunitiesData.opportunities || []);
+      } else {
+        console.error('Failed to fetch opportunities:', opportunitiesResponse.value);
+        setOpportunities([]);
+      }
+
+      // Process gaps
+      if (gapsResponse.status === 'fulfilled' && gapsResponse.value.ok) {
+        const gapsData = await gapsResponse.value.json();
+        setGaps(gapsData.gaps || []);
+      } else {
+        console.error('Failed to fetch gaps:', gapsResponse.value);
+        setGaps([]);
+      }
+    } catch (error) {
+      console.error('Error fetching opportunities and gaps:', error);
+      setOpportunities([]);
+      setGaps([]);
+    }
+  };
+
   const fetchBrickData = async () => {
     try {
-      // Fetch real BRICK development data from orchestration sessions
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/orchestration/sessions`);
+      // Fetch real BRICK data from VPS database (bricks table)
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/bricks/`);
       const data = await response.json();
       
-      // Process orchestration sessions to show BRICK development progress
-      const brickSessions = data.sessions.filter(session => session.task_type === 'brick_development');
-      
-      const processedBricks = brickSessions.map((session, index) => {
-        const developmentPlan = session.results?.development_plan || {};
-        const generatedArtifacts = session.results?.generated_artifacts || {};
+      if (response.ok && data.bricks) {
+        // Use real BRICKS from VPS database
+        const processedBricks = data.bricks.map(brick => ({
+          id: brick.brick_id,
+          name: brick.name,
+          description: brick.description,
+          category: brick.category,
+          status: brick.status,
+          priority: brick.priority || 5,
+          revenue_potential: brick.revenue_potential || 0,
+          complexity: brick.complexity || 5,
+          estimated_hours: brick.estimated_hours || 100,
+          actual_hours: brick.actual_hours || 0,
+          generated_files: brick.generated_files || 0,
+          generated_size: brick.generated_size || 0,
+          components: brick.components || [],
+          created_at: brick.created_at,
+          session_id: brick.session_id || null
+        }));
         
-        return {
-          id: session.run_id,
-          name: developmentPlan.brick_name || `BRICK ${index + 1}`,
-          description: `Generated from: ${session.goal}`,
-          category: 'ai_generated',
-          status: 'completed',
-          priority: developmentPlan.priority === 'critical' ? 9 : developmentPlan.priority === 'high' ? 7 : 5,
-          revenue_potential: developmentPlan.estimated_hours * 150, // $150/hour estimate
-          complexity: Math.min(10, Math.floor(developmentPlan.estimated_hours / 20)),
-          estimated_hours: developmentPlan.estimated_hours || 100,
-          actual_hours: developmentPlan.estimated_hours || 100, // Completed
-          generated_files: generatedArtifacts.total_files || 0,
-          generated_size: generatedArtifacts.total_size_bytes || 0,
-          components: developmentPlan.components || [],
-          created_at: session.created_at,
-          session_id: session.session_id
-        };
-      });
-      
-      // Add default BRICKS if no real sessions exist
-      if (processedBricks.length === 0) {
-        processedBricks.push(
-          {
-            id: 'brick_001',
-            name: 'Church Kit Generator API',
-            description: 'Automated legal formation services for churches and religious organizations',
-            category: 'automation',
-            status: 'production',
-            priority: 8,
-            revenue_potential: 15000,
-            complexity: 7,
-            estimated_hours: 120,
-            actual_hours: 115,
-            generated_files: 0,
-            generated_size: 0,
-            components: ['API endpoints', 'Database integration', 'Payment processing'],
-            created_at: new Date().toISOString(),
-            session_id: 'default'
-          }
-        );
+        setBricks(processedBricks);
+      } else {
+        console.error('Failed to fetch BRICKS from VPS database:', data);
+        setBricks([]);
       }
-      
-      setBricks(processedBricks);
 
-      setOpportunities([
-        {
-          id: 'opp_001',
-          title: 'Mobile App Development',
-          description: 'Create mobile applications for all BRICK services',
-          estimated_revenue: 100000,
-          confidence_level: 0.85,
-          effort_required: 'high',
-          time_to_implement: 180
-        },
-        {
-          id: 'opp_002',
-          title: 'API Marketplace',
-          description: 'Create marketplace for BRICK API integrations',
-          estimated_revenue: 75000,
-          confidence_level: 0.92,
-          effort_required: 'medium',
-          time_to_implement: 120
-        }
-      ]);
-
-      setGaps([
-        {
-          id: 'gap_001',
-          title: 'Mobile Application Platform',
-          description: 'Lack of mobile applications for key services',
-          gap_type: 'capability',
-          severity: 'high'
-        },
-        {
-          id: 'gap_002',
-          title: 'Advanced Analytics Integration',
-          description: 'Missing advanced analytics capabilities',
-          gap_type: 'integration',
-          severity: 'medium'
-        }
-      ]);
+      // Fetch opportunities and gaps from VPS database
+      await fetchOpportunitiesAndGaps();
 
       setLoading(false);
     } catch (error) {

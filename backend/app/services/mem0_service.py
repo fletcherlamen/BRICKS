@@ -37,14 +37,26 @@ class Mem0Service:
                 self.initialized = False
                 return
             
-            # Initialize Mem0 client
-            self.client = mem0.Mem0(
-                api_key=settings.MEM0_API_KEY,
-                base_url=settings.MEM0_BASE_URL
-            )
-            
-            self.initialized = True
-            logger.info("Mem0 service initialized successfully")
+            # Initialize Mem0 client with error handling for aiohttp compatibility
+            try:
+                self.client = mem0.Mem0(
+                    api_key=settings.MEM0_API_KEY,
+                    base_url=settings.MEM0_BASE_URL
+                )
+                
+                # Test the client with a simple operation
+                test_result = self.client.search("test", limit=1)
+                
+                self.initialized = True
+                logger.info("Mem0 service initialized successfully")
+                
+            except AttributeError as e:
+                if "ConnectionTimeoutError" in str(e) or "aiohttp" in str(e):
+                    logger.warning("Mem0 aiohttp compatibility issue, running in enhanced mock mode", error=str(e))
+                    self.initialized = False
+                    return
+                else:
+                    raise e
             
         except Exception as e:
             logger.warning("Failed to initialize Mem0 service, running in mock mode", error=str(e))
@@ -340,6 +352,21 @@ class Mem0Service:
             }
         
         if not self.initialized:
+            # Check if this is due to aiohttp compatibility issue
+            try:
+                import mem0
+                mem0.Mem0(api_key=settings.MEM0_API_KEY)
+            except AttributeError as e:
+                if "ConnectionTimeoutError" in str(e) or "aiohttp" in str(e):
+                    return {
+                        "status": "warning",
+                        "mode": "enhanced_mock",
+                        "api_key_configured": True,
+                        "message": "API key configured but mem0ai library has compatibility issues - using enhanced mock mode",
+                        "error": "aiohttp compatibility issue",
+                        "note": "Mem0 functionality simulated with VPS database persistence"
+                    }
+            
             return {
                 "status": "error",
                 "mode": "fallback",
