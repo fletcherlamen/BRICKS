@@ -9,11 +9,26 @@ import structlog
 import time
 from datetime import datetime
 
-from app.services.real_orchestrator import real_orchestrator
-from app.models.ubic import UBICResponse, Status
+from app.services.ai_orchestrator import AIOrchestrator
+from app.models.orchestration import UBICResponse
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
+
+# Global orchestrator instance
+_orchestrator_instance: Optional[AIOrchestrator] = None
+
+
+async def get_ai_orchestrator() -> AIOrchestrator:
+    """Get or create the global AIOrchestrator instance"""
+    global _orchestrator_instance
+    
+    if _orchestrator_instance is None:
+        _orchestrator_instance = AIOrchestrator()
+        await _orchestrator_instance.initialize()
+        logger.info("AIOrchestrator initialized successfully")
+    
+    return _orchestrator_instance
 
 
 class OrchestrationRequest(BaseModel):
@@ -59,30 +74,103 @@ class SessionsListResponse(BaseModel):
     timestamp: str
 
 
-def get_orchestrator():
-    """Dependency to get real orchestrator instance"""
-    return real_orchestrator
-
-
 @router.post("/execute", response_model=UBICResponse)
 async def execute_orchestration(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
-    """Execute an orchestrated task across multiple AI systems - BRICK 2 Automation Ready"""
+    """Execute TRUE multi-agent orchestration across AI systems"""
     
     try:
+        # Generate session ID if not provided
+        session_id = request.session_id or f"session_{int(time.time() * 1000)}"
+        
+        # Execute TRUE multi-agent orchestration using AIOrchestrator
+        logger.info("Starting multi-agent orchestration", 
+                   task_type=request.task_type,
+                   goal=request.goal,
+                   session_id=session_id)
+        
+        # Use AIOrchestrator.orchestrate_task for TRUE orchestration
+        results = await orchestrator.orchestrate_task(
+            task_type=request.task_type.lower().replace(" ", "_").replace("-", "_"),
+            goal=request.goal,
+            context=request.context,
+            session_id=session_id
+        )
+        
+        # Save to database
+        from app.core.database import AsyncSessionLocal
+        from app.models.orchestration import OrchestrationSession
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            # Check if session exists
+            stmt = select(OrchestrationSession).where(OrchestrationSession.session_id == session_id)
+            result = await db.execute(stmt)
+            existing_session = result.scalar_one_or_none()
+            
+            if not existing_session:
+                # Create new session with valid fields only
+                new_session = OrchestrationSession(
+                    session_id=session_id,
+                    goal=request.goal,
+                    context={
+                        "task_type": request.task_type,
+                        "original_context": request.context,
+                        "orchestration_results": results
+                    },
+                    status="completed"
+                )
+                db.add(new_session)
+                await db.commit()
+        
+        logger.info("Multi-agent orchestration completed successfully", session_id=session_id)
+        
+        return UBICResponse(
+            success=True,
+            message="Multi-agent orchestration completed successfully",
+            data={
+                "session_id": session_id,
+                "task_type": request.task_type,
+                "results": results,
+                "orchestration_type": "multi_agent",
+                "agents_used": results.get("agents_involved", [])
+            },
+            session_id=session_id
+        )
+    
+    except Exception as e:
+        logger.error("Multi-agent orchestration failed", error=str(e), task_type=request.task_type)
+        return UBICResponse(
+            success=False,
+            message=f"Orchestration failed: {str(e)}",
+            data={"error": str(e), "task_type": request.task_type}
+        )
+
+
+# Legacy endpoints for backward compatibility
+@router.post("/execute-legacy", response_model=UBICResponse)
+async def execute_orchestration_legacy(
+    request: OrchestrationRequest
+):
+    """Legacy endpoint - redirects to new multi-agent orchestration"""
+    
+    try:
+        # Import RealOrchestrator for legacy support
+        from app.services.real_orchestrator import real_orchestrator
+        
         # Execute orchestration based on task type
         task_type_lower = request.task_type.lower().replace(" ", "_").replace("-", "_")
         
         if task_type_lower in ["strategic_analysis", "strategic"]:
-            results = await orchestrator.execute_strategic_analysis(
+            results = await real_orchestrator.execute_strategic_analysis(
                 goal=request.goal,
                 context=request.context,
                 session_id=request.session_id
             )
         elif task_type_lower in ["brick_development", "brick", "development"]:
-            results = await orchestrator.execute_brick_development(
+            results = await real_orchestrator.execute_brick_development(
                 goal=request.goal,
                 context=request.context,
                 session_id=request.session_id
@@ -153,7 +241,7 @@ async def execute_orchestration(
 @router.post("/strategic-analysis")
 async def strategic_analysis(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Perform strategic analysis using multiple AI systems"""
     
@@ -186,7 +274,7 @@ async def strategic_analysis(
 @router.post("/brick-development")
 async def brick_development(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Orchestrate BRICK development using AI systems"""
     
@@ -219,7 +307,7 @@ async def brick_development(
 @router.post("/revenue-optimization")
 async def revenue_optimization(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Perform revenue optimization analysis"""
     
@@ -252,7 +340,7 @@ async def revenue_optimization(
 @router.post("/gap-analysis")
 async def gap_analysis(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Perform strategic gap analysis"""
     
@@ -284,7 +372,7 @@ async def gap_analysis(
 
 @router.get("/status")
 async def get_orchestration_status(
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Get orchestration system status from VPS database"""
     
@@ -327,7 +415,7 @@ async def get_orchestration_status(
 
 @router.get("/sessions", response_model=SessionsListResponse)
 async def get_orchestration_sessions(
-    orchestrator = Depends(get_orchestrator),
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
     limit: int = 10,
     status_filter: Optional[str] = None,
     task_type_filter: Optional[str] = None
@@ -411,7 +499,7 @@ def _get_time_ago(timestamp: str) -> str:
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_orchestration_session(
     session_id: str,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Get specific orchestration session details with complete outputs - BRICK 2 Automation Ready"""
     
@@ -465,7 +553,7 @@ async def get_orchestration_session(
 @router.post("/trigger", response_model=UBICResponse)
 async def trigger_orchestration_programmatically(
     request: OrchestrationRequest,
-    orchestrator = Depends(get_orchestrator)
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator)
 ):
     """Trigger orchestration programmatically for BRICK 2 automation - Non-UI endpoint"""
     

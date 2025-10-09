@@ -4,9 +4,16 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic
 
 api_router = APIRouter()
+
+# UBIC v1.5 Compliance Endpoints (CRITICAL)
+api_router.include_router(
+    ubic.router,
+    prefix="",  # No prefix - UBIC endpoints at root level
+    tags=["ubic-compliance"]
+)
 
 # UBIC v1.5 Required Endpoints Only
 api_router.include_router(
