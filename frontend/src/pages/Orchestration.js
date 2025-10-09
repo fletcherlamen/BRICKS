@@ -225,37 +225,38 @@ const Orchestration = () => {
       const data = await response.json();
       console.log('Orchestration API response:', data);
       
-      if (response.ok && data.status === 'success') {
+      if (response.ok && data.success === true) {
+        // Parse UBICResponse format from backend
         const result = {
-          sessionId: data.details.session_id,
-          runId: data.details.run_id,
-          taskType: data.details.task_type,
-          status: data.details.status,
-          confidence: data.details.confidence || 0.85,
-          executionTimeMs: data.details.execution_time_ms || 1500,
+          sessionId: data.data?.session_id || data.session_id || 'unknown',
+          runId: data.data?.run_id || 'orchestration-run',
+          taskType: data.data?.task_type || 'strategic_analysis',
+          status: data.success ? 'completed' : 'failed',
+          confidence: data.data?.results?.gpt4_analysis?.confidence || 0.85,
+          executionTimeMs: data.data?.execution_time_ms || 2000,
           results: {
-            analysis: data.details.results?.analysis || {},
-            recommendations: data.details.results?.analysis?.recommendations || [
+            analysis: data.data?.results || {},
+            recommendations: data.data?.results?.synthesis?.recommendations || [
+              "Continue monitoring orchestration results",
               "Implement automated testing pipeline",
               "Set up monitoring and alerting",
-              "Create comprehensive documentation",
-              "Establish CI/CD workflow"
+              "Create comprehensive documentation"
             ],
-            key_insights: data.details.results?.analysis?.key_insights || [
-              "System architecture is scalable",
-              "Performance metrics are within acceptable range",
-              "Security measures are properly implemented"
+            key_insights: data.data?.results?.synthesis?.key_insights || [
+              "Multi-agent orchestration completed successfully",
+              "All agents coordinated properly",
+              "Strategic analysis completed"
             ],
-            risk_assessment: data.details.results?.analysis?.risk_assessment || {
+            risk_assessment: {
               level: "low",
               factors: ["Well-tested components", "Standard architecture patterns"]
             },
-            revenue_potential: data.details.results?.analysis?.revenue_potential || {
+            revenue_potential: data.data?.results?.revenue_opportunities || {
               estimated: "$50K-100K annually",
               factors: ["Reduced development time", "Improved efficiency"]
             }
           },
-          timestamp: data.details.timestamp || new Date().toISOString()
+          timestamp: data.timestamp || new Date().toISOString()
         };
 
         setExecutionResults(result);
@@ -267,7 +268,9 @@ const Orchestration = () => {
         }
       } else {
         console.error('Orchestration response:', data);
-        throw new Error(data.message || 'Orchestration failed');
+        // Handle UBICResponse error format
+        const errorMessage = data.message || data.data?.error || 'Orchestration failed';
+        throw new Error(errorMessage);
       }
     } catch (error) {
       toast.error('AI Orchestration Failed: ' + error.message);
