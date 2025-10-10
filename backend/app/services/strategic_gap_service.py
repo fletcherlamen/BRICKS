@@ -105,18 +105,18 @@ class StrategicGapService:
             for db_gap in db_gaps:
                 gap_data = {
                     "gap_id": db_gap.gap_id,
-                    "title": db_gap.title,
+                    "title": db_gap.gap_name,  # Use gap_name instead of title
                     "description": db_gap.description,
-                    "gap_type": db_gap.gap_type,
+                    "gap_type": db_gap.gap_category,  # Use gap_category instead of gap_type
                     "severity": db_gap.severity,
-                    "impact_assessment": db_gap.impact_assessment,
-                    "suggested_solutions": db_gap.suggested_solutions,
+                    "impact_assessment": db_gap.impact,  # Use impact instead of impact_assessment
+                    "suggested_solutions": db_gap.mitigation_strategy,  # Use mitigation_strategy instead of suggested_solutions
                     "status": db_gap.status,
                     "priority": db_gap.severity
                 }
                 
                 # Categorize by gap type
-                gap_type = db_gap.gap_type or "competitive_gaps"
+                gap_type = f"{db_gap.gap_category}_gaps" if db_gap.gap_category else "competitive_gaps"
                 if gap_type in detected_gaps:
                     detected_gaps[gap_type].append(gap_data)
                 else:
