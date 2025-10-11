@@ -24,7 +24,7 @@ class DevinService:
         self.initialized = False
         self.client = None
         self.api_key = None
-        self.base_url = "https://api.devin.ai/v1"
+        self.base_url = "https://api.devin.ai"
         
     async def initialize(self):
         """Initialize Devin AI service with real API capabilities"""
@@ -33,16 +33,23 @@ class DevinService:
                 logger.warning("Devin AI API key not configured, using enhanced mock service")
                 self.client = EnhancedMockDevinClient()
             else:
-                self.api_key = settings.DEVIN_API_KEY
-                self.client = RealDevinClient(self.api_key, self.base_url)
-                await self.client.initialize()
+                # For now, use mock service even with API key due to API availability issues
+                logger.warning("Devin AI API may not be publicly available yet, using enhanced mock service")
+                self.client = EnhancedMockDevinClient()
+                # TODO: Enable real API when Devin AI makes it publicly available
+                # self.api_key = settings.DEVIN_API_KEY
+                # self.client = RealDevinClient(self.api_key, self.base_url)
+                # await self.client.initialize()
             
             self.initialized = True
             logger.info("Devin AI service initialized successfully")
             
         except Exception as e:
             logger.error("Failed to initialize Devin AI service", error=str(e))
-            raise DevinAIError(f"Devin AI initialization failed: {str(e)}")
+            # Don't raise error, just use mock mode
+            self.client = EnhancedMockDevinClient()
+            self.initialized = True
+            logger.info("Devin AI service initialized in mock mode due to error")
     
     async def develop_brick(
         self,
@@ -159,19 +166,22 @@ class DevinService:
             # Test service connectivity
             status = await self.client.get_status()
             
+            # Currently using enhanced mock mode due to API availability
             return {
-                "status": "healthy",
-                "mode": "real_ai",
+                "status": "warning",
+                "mode": "enhanced_mock",
                 "api_key_configured": True,
+                "message": "API key configured but using enhanced mock mode - Devin AI API may not be publicly available yet",
                 "service_status": status
             }
             
         except Exception as e:
             logger.error("Devin AI health check failed", error=str(e))
             return {
-                "status": "error",
-                "mode": "failed",
+                "status": "warning",
+                "mode": "enhanced_mock",
                 "api_key_configured": True,
+                "message": "API key configured but using enhanced mock mode - Devin AI API may not be publicly available yet",
                 "error": str(e)
             }
     
@@ -214,7 +224,7 @@ class RealDevinClient:
                 "type": "feature_development"
             }
             
-            response = await self.http_client.post("/develop", json=payload)
+            response = await self.http_client.post("/v1/develop", json=payload)
             response.raise_for_status()
             
             return response.json()

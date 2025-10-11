@@ -42,6 +42,18 @@ services:
       - VPS_DOMAIN=${VPS_DOMAIN:-64.227.99.111}
       # CORS Configuration
       - CORS_ALLOW_ALL_ORIGINS=${CORS_ALLOW_ALL_ORIGINS:-true}
+      # AI Service API Keys - Set these in your environment or .env file
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your-openai-api-key}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-your-anthropic-api-key}
+      - GOOGLE_GEMINI_API_KEY=${GOOGLE_GEMINI_API_KEY:-your-google-gemini-api-key}
+      - MEM0_API_KEY=${MEM0_API_KEY:-your-mem0-api-key}
+      - CREWAI_API_KEY=${CREWAI_API_KEY:-your-crewai-api-key}
+      - DEVIN_API_KEY=${DEVIN_API_KEY:-your-devin-api-key}
+      - COPILOT_STUDIO_API_KEY=${COPILOT_STUDIO_API_KEY:-your-copilot-studio-api-key}
+      - GITHUB_COPILOT_TOKEN=${GITHUB_COPILOT_TOKEN:-your-github-copilot-token}
+      # Security Keys
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key-here}
     ports:
       - "8000:8000"
     depends_on:
@@ -52,14 +64,15 @@ services:
       - /app/venv
     networks:
       - brick_network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   # React Frontend
   frontend:
@@ -96,3 +109,5 @@ volumes:
 networks:
   brick_network:
     driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500

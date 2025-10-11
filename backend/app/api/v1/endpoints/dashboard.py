@@ -143,11 +143,15 @@ async def get_services_status():
             # Check if API key is configured and not a placeholder
             api_key_configured = bool(api_key and api_key.strip() != "" and not api_key.startswith("your-"))
             
-            # Special handling for Mem0 (has compatibility issues)
+            # Special handling for specific services
             if service_id == "mem0" and api_key_configured:
                 status = "warning"
                 health_score = 75.0
                 message = "API key configured but library has compatibility issues - using enhanced mock mode"
+            elif service_id == "devin" and api_key_configured:
+                status = "warning"
+                health_score = 75.0
+                message = "API key configured but using enhanced mock mode - Devin AI API may not be publicly available yet"
             elif not api_key_configured:
                 status = "critical"
                 health_score = 0.0
