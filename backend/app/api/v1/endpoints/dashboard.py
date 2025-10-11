@@ -149,10 +149,20 @@ async def get_services_status():
                 health_score = 0.0
                 message = "API key not configured - service not operational"
             elif service_id == "devin":
-                # Devin AI API may not be publicly available yet, so use enhanced mock mode
-                status = "warning"
-                health_score = 75.0
-                message = "API key configured but using enhanced mock mode - Devin AI API may not be publicly available yet"
+                # For Devin AI, check the actual service status instead of assuming warning
+                try:
+                    from app.services.devin_service import DevinService
+                    devin_service = DevinService()
+                    await devin_service.initialize()
+                    devin_status = await devin_service.get_status()
+                    status = devin_status["status"]
+                    health_score = 100.0 if devin_status["status"] == "healthy" else 75.0
+                    message = devin_status["message"]
+                except Exception as e:
+                    # Fallback to warning if we can't check the actual status
+                    status = "warning"
+                    health_score = 75.0
+                    message = "API key configured but using enhanced mock mode - Devin AI API may not be publicly available yet"
             else:
                 # All other services with real API keys should be healthy
                 status = "healthy"
