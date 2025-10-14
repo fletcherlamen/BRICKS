@@ -8,25 +8,24 @@ from app.core.database import Base
 
 
 class Memory(Base):
-    """Persistent memory storage"""
+    """
+    Trinity BRICKS I MEMORY - Persistent memory storage with multi-user isolation
+    
+    Schema aligned with Trinity BRICKS specification
+    """
     
     __tablename__ = "memories"
     
     id = Column(Integer, primary_key=True, index=True)
     memory_id = Column(String(100), unique=True, index=True, nullable=False)
-    content = Column(Text, nullable=False)
-    memory_type = Column(String(50), nullable=False)  # fact, experience, strategy, context
-    importance_score = Column(Float, default=0.5)  # 0.0 to 1.0
-    tags = Column(JSON)  # Array of tags for categorization
-    source_system = Column(String(50))  # Which AI system created this memory
-    memory_metadata = Column("metadata", JSON)  # Map to 'metadata' column in database
+    user_id = Column(String(255), nullable=False, index=True)  # Trinity BRICKS: Multi-user isolation
+    content = Column(JSON, nullable=False)  # Trinity BRICKS: Store as JSONB for structured data
+    memory_metadata = Column("metadata", JSON)  # Trinity BRICKS: Flexible metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    last_accessed = Column(DateTime(timezone=True))
-    access_count = Column(Integer, default=0)
     
     def __repr__(self):
-        return f"<Memory(id={self.id}, type='{self.memory_type}', importance={self.importance_score})>"
+        return f"<Memory(id={self.id}, user='{self.user_id}', memory_id='{self.memory_id}')>"
 
 
 class Context(Base):

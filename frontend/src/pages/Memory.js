@@ -4,216 +4,119 @@ import {
   CircleStackIcon,
   PlusIcon,
   MagnifyingGlassIcon,
-  ClockIcon,
-  TagIcon,
-  DocumentTextIcon,
-  DocumentIcon,
-  CloudArrowUpIcon,
-  FolderIcon,
-  XMarkIcon,
-  CheckIcon,
-  TrashIcon
+  UserIcon,
+  TrashIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
-const EnhancedMemory = () => {
+const TrinityMemory = () => {
   const [memories, setMemories] = useState([]);
+  const [currentUser, setCurrentUser] = useState('james@fullpotential.com');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [categories, setCategories] = useState({});
-  const [availableTags, setAvailableTags] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
-  const [databaseStatus, setDatabaseStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState(null);
+  
+  // Add memory form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showFileUpload, setShowFileUpload] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [largeText, setLargeText] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [newMemory, setNewMemory] = useState({
-    content: '',
-    memory_type: 'fact',
-    category: 'general',
-    importance_score: 0.5,
-    tags: [],
-    source_type: 'text'
+    content: {}
   });
+  const [contentKey, setContentKey] = useState('');
+  const [contentValue, setContentValue] = useState('');
+  const [contentPairs, setContentPairs] = useState([]);
 
   useEffect(() => {
-    fetchMemoryData();
-    fetchCategories();
-    fetchTags();
-    fetchStats();
-    fetchDatabaseStatus();
-  }, []);
+    if (currentUser) {
+      fetchUserMemories();
+      fetchUserStats();
+    }
+  }, [currentUser]);
 
-  const fetchMemoryData = async () => {
+  const fetchUserMemories = async () => {
+    setLoading(true);
     try {
-      // Always fetch all memories without filters - filtering will be done client-side
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/get-all?user_id=${encodeURIComponent(currentUser)}&limit=100`
+      );
       const data = await response.json();
-      setMemories(data.memories || []);
-      setLoading(false);
+      
+      if (data.status === 'success') {
+        setMemories(data.memories || []);
+      }
     } catch (error) {
       console.error('Error fetching memories:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchUserStats = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/categories`);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/stats?user_id=${encodeURIComponent(currentUser)}`
+      );
       const data = await response.json();
-      setCategories(data.categories || {});
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/tags`);
-      const data = await response.json();
-      setAvailableTags(data.tags || {});
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/stats`);
-      const data = await response.json();
-      setStats(data.statistics || {});
+      
+      if (data.status === 'success') {
+        setStats(data.stats);
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
   };
 
-  const fetchDatabaseStatus = async () => {
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      fetchUserMemories();
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/database/health`);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/search?user_id=${encodeURIComponent(currentUser)}&query=${encodeURIComponent(searchQuery)}&limit=50`
+      );
       const data = await response.json();
       
-      if (response.ok) {
-        setDatabaseStatus(data);
-      } else {
-        console.error('Failed to fetch database status:', data);
-        setDatabaseStatus({
-          status: 'error',
-          message: 'Failed to connect to VPS database',
-          timestamp: new Date().toISOString()
-        });
+      if (data.status === 'success') {
+        setMemories(data.results || []);
       }
     } catch (error) {
-      console.error('Error fetching database status:', error);
-      setDatabaseStatus({
-        status: 'error',
-        message: 'Failed to connect to VPS database',
-        timestamp: new Date().toISOString()
-      });
-    }
-  };
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setUploadedFile(file);
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('category', 'documents');
-      formData.append('tags', JSON.stringify(['uploaded', 'document']));
-      formData.append('importance_score', '0.7');
-      formData.append('auto_extract', 'true');
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-      
-      if (response.ok) {
-        // Refresh memories
-        fetchMemoryData();
-        setUploadedFile(null);
-        setShowFileUpload(false);
-        alert('File uploaded successfully!');
-      } else {
-        alert('Error uploading file: ' + result.detail);
-      }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Error uploading file');
+      console.error('Error searching memories:', error);
     } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleLargeTextUpload = async () => {
-    if (!largeText.trim()) return;
-
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('content', largeText);
-      formData.append('category', 'general');
-      formData.append('tags', JSON.stringify(['text', 'large-content']));
-      formData.append('importance_score', '0.6');
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/upload-text`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-      
-      if (response.ok) {
-        // Refresh memories
-        fetchMemoryData();
-        setLargeText('');
-        setShowAddForm(false);
-        alert('Large text uploaded successfully!');
-      } else {
-        alert('Error uploading text: ' + result.detail);
-      }
-    } catch (error) {
-      console.error('Error uploading text:', error);
-      alert('Error uploading text');
-    } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
   const handleAddMemory = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newMemory)
+      // Build content object from key-value pairs
+      const content = {};
+      contentPairs.forEach(pair => {
+        content[pair.key] = pair.value;
       });
+
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/add`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser,
+            content: content,
+            metadata: { added_via: 'ui' }
+          })
+        }
+      );
 
       const result = await response.json();
       
-      if (response.ok) {
-        fetchMemoryData();
-        setNewMemory({
-          content: '',
-          memory_type: 'fact',
-          category: 'general',
-          importance_score: 0.5,
-          tags: [],
-          source_type: 'text'
-        });
-        setShowAddForm(false);
+      if (result.status === 'success') {
         alert('Memory added successfully!');
+        setShowAddForm(false);
+        setContentPairs([]);
+        fetchUserMemories();
+        fetchUserStats();
       } else {
         alert('Error adding memory: ' + result.detail);
       }
@@ -224,17 +127,24 @@ const EnhancedMemory = () => {
   };
 
   const handleDeleteMemory = async (memoryId) => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/${memoryId}`, {
-        method: 'DELETE'
-      });
+    if (!window.confirm('Are you sure you want to delete this memory?')) {
+      return;
+    }
 
-      if (response.ok) {
-        fetchMemoryData();
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/delete?memory_id=${encodeURIComponent(memoryId)}&user_id=${encodeURIComponent(currentUser)}`,
+        { method: 'DELETE' }
+      );
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
         alert('Memory deleted successfully!');
+        fetchUserMemories();
+        fetchUserStats();
       } else {
-        const result = await response.json();
-        alert('Error deleting memory: ' + (result.detail || 'Unknown error'));
+        alert('Error deleting memory: ' + result.detail);
       }
     } catch (error) {
       console.error('Error deleting memory:', error);
@@ -242,47 +152,20 @@ const EnhancedMemory = () => {
     }
   };
 
-  const getMemoryTypeColor = (type) => {
-    switch (type) {
-      case 'strategy': return 'badge-primary';
-      case 'gap': return 'badge-danger';
-      case 'opportunity': return 'badge-success';
-      case 'fact': return 'badge-secondary';
-      case 'experience': return 'badge-warning';
-      case 'document': return 'badge-info';
-      case 'text': return 'badge-accent';
-      default: return 'badge-secondary';
+  const addContentPair = () => {
+    if (contentKey && contentValue) {
+      setContentPairs([...contentPairs, { key: contentKey, value: contentValue }]);
+      setContentKey('');
+      setContentValue('');
     }
   };
 
-  const getSourceTypeIcon = (sourceType) => {
-    switch (sourceType) {
-      case 'pdf': return DocumentIcon;
-      case 'markdown': return DocumentTextIcon;
-      case 'text': return DocumentTextIcon;
-      default: return CircleStackIcon;
-    }
+  const removeContentPair = (index) => {
+    setContentPairs(contentPairs.filter((_, i) => i !== index));
   };
-
-  const filteredMemories = memories.filter(memory => {
-    // Filter by search query (content or tags)
-    const matchesSearch = searchQuery === '' || 
-                         memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (memory.tags && memory.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
-    
-    // Filter by category (exact match)
-    const matchesCategory = selectedCategory === '' || memory.category === selectedCategory;
-    
-    // Filter by tags (any selected tag must be present in memory tags)
-    const matchesTags = selectedTags.length === 0 || 
-                       (memory.tags && selectedTags.some(selectedTag => 
-                         memory.tags.some(memoryTag => memoryTag.toLowerCase() === selectedTag.toLowerCase())
-                       ));
-    
-    return matchesSearch && matchesCategory && matchesTags;
-  });
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -292,489 +175,363 @@ const EnhancedMemory = () => {
     });
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('');
-    setSelectedTags([]);
-  };
-
-  const hasActiveFilters = searchQuery || selectedCategory || selectedTags.length > 0;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="spinner"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="border-b border-gray-200 pb-4">
-        <h1 className="text-3xl font-bold text-gray-900">Enhanced Memory System</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Trinity BRICKS I MEMORY</h1>
         <p className="mt-2 text-gray-600">
-          Upload files (PDF, .md, .txt), paste large text, and organize with categories and tags
+          Persistent memory with multi-user isolation and semantic search
         </p>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { name: 'Total Memories', value: stats.total_memories || memories.length, icon: CircleStackIcon, color: 'bg-blue-500' },
-          { name: 'Categories', value: Object.keys(stats.categories || categories).length, icon: FolderIcon, color: 'bg-green-500' },
-          { name: 'Available Tags', value: Object.keys(stats.top_tags || availableTags).length, icon: TagIcon, color: 'bg-purple-500' },
-          { name: 'Recent Memories', value: stats.recent_memories || memories.filter(m => {
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            return new Date(m.timestamp || m.created_at) > oneDayAgo;
-          }).length, icon: DocumentIcon, color: 'bg-yellow-500' }
-        ].map((stat, index) => (
-          <motion.div
-            key={stat.name}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-            className="card"
+      {/* User Selection & Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* User Selection */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card"
+        >
+          <div className="flex items-center mb-4">
+            <UserIcon className="h-6 w-6 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Current User</h3>
+          </div>
+          <select
+            value={currentUser}
+            onChange={(e) => setCurrentUser(e.target.value)}
+            className="input w-full"
           >
-            <div className="flex items-center">
-              <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
-                <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            <option value="james@fullpotential.com">James (james@fullpotential.com)</option>
+            <option value="vahit@company.com">Vahit (vahit@company.com)</option>
+            <option value="fletcher@developer.com">Fletcher (fletcher@developer.com)</option>
+            <option value="alice@example.com">Alice (alice@example.com)</option>
+            <option value="bob@example.com">Bob (bob@example.com)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-2">
+            Each user has isolated memory space
+          </p>
+        </motion.div>
 
-      {/* Database Status */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="card"
-      >
-        <div className="card-header">
-          <h3 className="text-lg font-semibold text-gray-900">VPS Database Status</h3>
-        </div>
-        
-        <div className="space-y-4">
-          {databaseStatus ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Connection Status</p>
-                  <p className="text-xs text-gray-500">VPS: 64.227.99.111:5432</p>
-                </div>
-                <span className={`status-indicator ${
-                  databaseStatus.status === 'healthy' ? 'status-healthy' : 'status-error'
-                }`}>
-                  {databaseStatus.status}
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card"
+        >
+          <div className="flex items-center mb-4">
+            <CircleStackIcon className="h-6 w-6 text-green-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Your Memories</h3>
+          </div>
+          {stats && stats.user_stats ? (
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Total:</span>
+                <span className="text-sm font-semibold">{stats.user_stats.total_memories || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Cache:</span>
+                <span className="text-sm font-semibold">
+                  {stats.user_stats.cache_enabled ? '✅ Enabled' : '❌ Disabled'}
                 </span>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Message</p>
-                  <p className="text-xs text-gray-500">{databaseStatus.message}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Last Check</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(databaseStatus.timestamp).toLocaleString()}
-                  </p>
-                </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-500">Loading database status...</p>
-            </div>
+            <p className="text-sm text-gray-500">Loading stats...</p>
           )}
-        </div>
-      </motion.div>
-
-      {/* Upload and Add Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* File Upload */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="card"
-        >
-          <div className="flex items-center mb-4">
-            <CloudArrowUpIcon className="h-6 w-6 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Upload Files</h3>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Upload PDF, .md, or .txt files for automatic text extraction
-          </p>
-          
-          <div className="space-y-3">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <DocumentIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600 mb-2">Drop files here or click to browse</p>
-              <input
-                type="file"
-                accept=".pdf,.md,.txt,.markdown"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-                disabled={uploading}
-              />
-              <label
-                htmlFor="file-upload"
-                className="btn-primary cursor-pointer"
-              >
-                {uploading ? 'Uploading...' : 'Choose Files'}
-              </label>
-            </div>
-            
-            {uploadedFile && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center">
-                  <CheckIcon className="h-5 w-5 text-green-600 mr-2" />
-                  <span className="text-sm text-green-800">
-                    {uploadedFile.name} ({formatFileSize(uploadedFile.size)})
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
         </motion.div>
 
-        {/* Large Text Upload */}
+        {/* Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="card"
-        >
-          <div className="flex items-center mb-4">
-            <DocumentTextIcon className="h-6 w-6 text-green-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Large Text</h3>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Paste large amounts of text content (up to 100KB)
-          </p>
-          
-          <div className="space-y-3">
-            <textarea
-              value={largeText}
-              onChange={(e) => setLargeText(e.target.value)}
-              placeholder="Paste your large text content here..."
-              className="w-full p-3 border border-gray-300 rounded-lg resize-none"
-              rows={6}
-              disabled={uploading}
-            />
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">
-                {largeText.length}/100,000 characters
-              </span>
-              <button
-                onClick={handleLargeTextUpload}
-                disabled={!largeText.trim() || uploading}
-                className="btn-primary disabled:opacity-50"
-              >
-                {uploading ? 'Uploading...' : 'Upload Text'}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Quick Add Memory */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ delay: 0.2 }}
           className="card"
         >
           <div className="flex items-center mb-4">
             <PlusIcon className="h-6 w-6 text-purple-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Quick Add</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Actions</h3>
           </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Add a simple memory with category and tags
-          </p>
-          
-          <div className="space-y-3">
-            <textarea
-              value={newMemory.content}
-              onChange={(e) => setNewMemory({...newMemory, content: e.target.value})}
-              placeholder="Enter memory content..."
-              className="w-full p-3 border border-gray-300 rounded-lg resize-none"
-              rows={3}
-            />
-            
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                value={newMemory.category}
-                onChange={(e) => setNewMemory({...newMemory, category: e.target.value})}
-                className="input text-sm"
-              >
-                <option value="general">General</option>
-                <option value="business">Business</option>
-                <option value="technical">Technical</option>
-                <option value="documents">Documents</option>
-                <option value="research">Research</option>
-              </select>
-              
-              <select
-                value={newMemory.memory_type}
-                onChange={(e) => setNewMemory({...newMemory, memory_type: e.target.value})}
-                className="input text-sm"
-              >
-                <option value="fact">Fact</option>
-                <option value="strategy">Strategy</option>
-                <option value="gap">Gap</option>
-                <option value="opportunity">Opportunity</option>
-                <option value="experience">Experience</option>
-              </select>
-            </div>
-            
-            <input
-              type="text"
-              value={newMemory.tags.join(', ')}
-              onChange={(e) => setNewMemory({...newMemory, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t)})}
-              placeholder="Tags (comma-separated)"
-              className="input text-sm"
-            />
-            
-            <button
-              onClick={handleAddMemory}
-              disabled={!newMemory.content.trim()}
-              className="btn-primary w-full disabled:opacity-50"
-            >
-              Add Memory
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="btn-primary w-full"
+          >
+            {showAddForm ? 'Cancel' : 'Add New Memory'}
+          </button>
         </motion.div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="card">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search memories by content or tags..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input pl-10"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="input"
-            >
-              <option value="">All Categories</option>
-              {Object.entries(categories).map(([key, category]) => (
-                <option key={key} value={key}>
-                  {typeof category === 'string' ? category : category.name || key}
-                </option>
-              ))}
-              {/* Add common categories if not in API response */}
-              {Object.keys(categories).length === 0 && (
-                <>
-                  <option value="general">General</option>
-                  <option value="business">Business</option>
-                  <option value="technical">Technical</option>
-                  <option value="documents">Documents</option>
-                  <option value="development">Development</option>
-                </>
-              )}
-            </select>
-            <select
-              value={selectedTags.join(',')}
-              onChange={(e) => setSelectedTags(e.target.value ? e.target.value.split(',') : [])}
-              className="input"
-            >
-              <option value="">All Tags</option>
-              {Object.entries(availableTags).map(([tag, info]) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
-              {/* Add common tags if not in API response */}
-              {Object.keys(availableTags).length === 0 && (
-                <>
-                  <option value="strategy">Strategy</option>
-                  <option value="development">Development</option>
-                  <option value="business">Business</option>
-                  <option value="technical">Technical</option>
-                  <option value="research">Research</option>
-                  <option value="document">Document</option>
-                  <option value="uploaded">Uploaded</option>
-                </>
-              )}
-            </select>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="btn-outline text-sm px-3 py-2 whitespace-nowrap"
-                title="Clear all filters"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {/* Active Filters Display */}
-        {hasActiveFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm text-gray-600">Active filters:</span>
-              {searchQuery && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                  Search: "{searchQuery}"
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
-                  >
-                    <XMarkIcon className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-              {selectedCategory && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                  Category: {selectedCategory}
-                  <button
-                    onClick={() => setSelectedCategory('')}
-                    className="ml-1 text-green-600 hover:text-green-800"
-                  >
-                    <XMarkIcon className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-              {selectedTags.map((tag) => (
-                <span key={tag} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                  Tag: {tag}
-                  <button
-                    onClick={() => setSelectedTags(selectedTags.filter(t => t !== tag))}
-                    className="ml-1 text-purple-600 hover:text-purple-800"
-                  >
-                    <XMarkIcon className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Memory List */}
-      <div className="space-y-4">
-        {filteredMemories.length === 0 ? (
-          <div className="card text-center py-12">
-            <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
-            <p className="text-gray-600 mb-4">
-              {hasActiveFilters
-                ? 'Try adjusting your search criteria or clear filters'
-                : 'Upload files or add memories to get started'
-              }
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="btn-primary"
-              >
-                Clear All Filters
-              </button>
-            )}
-          </div>
-        ) : (
-          filteredMemories.map((memory, index) => {
-            const SourceIcon = getSourceTypeIcon(memory.source_type);
-            return (
-              <motion.div
-                key={memory.memory_id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.05 }}
-                className="card hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <SourceIcon className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <span className={`badge ${getMemoryTypeColor(memory.memory_type)}`}>
-                        {memory.memory_type}
-                      </span>
-                      <span className="badge badge-outline ml-2">
-                        {memory.category}
-                      </span>
-                      {memory.file_name && (
-                        <span className="text-xs text-gray-500 ml-2">
-                          {memory.file_name} ({formatFileSize(memory.file_size || 0)})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-600">
-                      {(memory.importance_score * 100).toFixed(0)}%
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {memory.source_type}
-                    </span>
+      {/* Add Memory Form */}
+      {showAddForm && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Memory</h3>
+          
+          <div className="space-y-4">
+            {/* Content Key-Value Pairs */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Memory Content (Key-Value Pairs)
+              </label>
+              
+              <div className="space-y-2">
+                {contentPairs.map((pair, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium text-gray-700">{pair.key}:</span>
+                    <span className="text-sm text-gray-600">{pair.value}</span>
                     <button
-                      onClick={() => handleDeleteMemory(memory.memory_id)}
-                      className="text-red-500 hover:text-red-700 transition-colors p-1 rounded"
-                      title="Delete memory"
+                      onClick={() => removeContentPair(index)}
+                      className="ml-auto text-red-500 hover:text-red-700"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  placeholder="Key (e.g., developer)"
+                  value={contentKey}
+                  onChange={(e) => setContentKey(e.target.value)}
+                  className="input flex-1"
+                />
+                <input
+                  type="text"
+                  placeholder="Value (e.g., Fletcher)"
+                  value={contentValue}
+                  onChange={(e) => setContentValue(e.target.value)}
+                  className="input flex-1"
+                />
+                <button
+                  onClick={addContentPair}
+                  disabled={!contentKey || !contentValue}
+                  className="btn-outline disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddMemory}
+                disabled={contentPairs.length === 0}
+                className="btn-primary flex-1 disabled:opacity-50"
+              >
+                Save Memory
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddForm(false);
+                  setContentPairs([]);
+                  setContentKey('');
+                  setContentValue('');
+                }}
+                className="btn-outline flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Search */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="card"
+      >
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Semantic search: 'What's Fletcher's status?' or 'developer assessments'"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="input pl-10 w-full"
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            className="btn-primary"
+          >
+            Search
+          </button>
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                fetchUserMemories();
+              }}
+              className="btn-outline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Memories List */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="spinner"></div>
+          </div>
+        ) : memories.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card text-center py-12"
+          >
+            <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
+            <p className="text-gray-600 mb-4">
+              {searchQuery
+                ? 'Try a different search query'
+                : 'Add your first memory to get started'
+              }
+            </p>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="btn-primary"
+            >
+              Add Memory
+            </button>
+          </motion.div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {searchQuery ? `Search Results (${memories.length})` : `All Memories (${memories.length})`}
+              </h3>
+              <span className="text-sm text-gray-500">
+                User: {currentUser}
+              </span>
+            </div>
+
+            {memories.map((memory, index) => (
+              <motion.div
+                key={memory.memory_id || index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="card hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <CircleStackIcon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">
+                        Memory ID: {memory.memory_id?.substring(0, 20)}...
+                      </span>
+                      {memory.relevance_score && (
+                        <span className="ml-2 text-xs text-green-600 font-semibold">
+                          Relevance: {(memory.relevance_score * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteMemory(memory.memory_id)}
+                    className="text-red-500 hover:text-red-700 transition-colors p-1 rounded"
+                    title="Delete memory"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
                 </div>
 
-                <p className="text-gray-900 mb-3 line-clamp-3">{memory.content}</p>
+                {/* Memory Content */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-3">
+                  {typeof memory.content === 'object' ? (
+                    <div className="space-y-2">
+                      {Object.entries(memory.content).map(([key, value]) => (
+                        <div key={key} className="flex">
+                          <span className="text-sm font-semibold text-gray-700 min-w-[120px]">
+                            {key}:
+                          </span>
+                          <span className="text-sm text-gray-900">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-900">{String(memory.content)}</p>
+                  )}
+                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-1">
-                    {memory.tags.map((tag, tagIndex) => (
-                      <span
-                        key={tagIndex}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800"
-                      >
-                        <TagIcon className="h-3 w-3 mr-1" />
-                        {tag}
-                      </span>
-                    ))}
+                {/* Metadata */}
+                {memory.metadata && Object.keys(memory.metadata).length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-1">Metadata:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(memory.metadata).map(([key, value]) => (
+                        <span
+                          key={key}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                        >
+                          {key}: {String(value)}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {formatDate(memory.timestamp || memory.created_at)}
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <ClockIcon className="h-4 w-4 mr-1" />
+                    {formatDate(memory.timestamp)}
+                  </div>
+                  <span className="badge badge-outline">
+                    {memory.source || 'mem0'}
                   </span>
                 </div>
               </motion.div>
-            );
-          })
+            ))}
+          </>
         )}
       </div>
+
+      {/* Trinity BRICKS Info */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="card bg-gradient-to-r from-blue-50 to-purple-50"
+      >
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          🧠 Trinity BRICKS I MEMORY
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="font-semibold text-gray-700">Multi-User Isolation</p>
+            <p className="text-gray-600">Each user has private memory namespace</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Semantic Search</p>
+            <p className="text-gray-600">Natural language queries with AI</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Persistent Storage</p>
+            <p className="text-gray-600">Memories survive container restarts</p>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
 
-export default EnhancedMemory;
+export default TrinityMemory;
