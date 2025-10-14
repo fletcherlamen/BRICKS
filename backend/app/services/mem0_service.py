@@ -1,11 +1,13 @@
 """
-Mem0.ai Service Integration
-Handles persistent memory and context management
+Mem0.ai Service Integration - Trinity BRICKS I MEMORY
+Handles persistent memory and context management with multi-user isolation
 """
 
 from typing import Dict, List, Optional, Any
 import structlog
 from datetime import datetime
+import hashlib
+import json
 
 from app.core.config import settings
 from app.core.exceptions import Mem0Error
@@ -14,15 +16,34 @@ logger = structlog.get_logger(__name__)
 
 
 class Mem0Service:
-    """Mem0.ai service for persistent memory management"""
+    """
+    Mem0.ai service for persistent memory management
+    
+    Trinity BRICKS I MEMORY Features:
+    - Multi-user isolation (each user has private memory namespace)
+    - Semantic search across memories
+    - Persistent storage with Redis caching
+    """
     
     def __init__(self):
         self.initialized = False
         self.client = None
+        self.redis_client = None
         
     async def initialize(self):
-        """Initialize Mem0 service"""
+        """Initialize Mem0 service with Redis caching"""
         try:
+            # Initialize Redis client for caching (Trinity BRICKS requirement)
+            try:
+                import redis.asyncio as redis
+                redis_url = getattr(settings, 'REDIS_URL', "redis://redis:6379")
+                self.redis_client = redis.from_url(redis_url, decode_responses=True)
+                await self.redis_client.ping()
+                logger.info("Redis client initialized successfully for I MEMORY")
+            except Exception as e:
+                logger.warning("Redis not available, caching disabled", error=str(e))
+                self.redis_client = None
+            
             # Import Mem0 client
             try:
                 import mem0
@@ -48,7 +69,7 @@ class Mem0Service:
                 test_result = self.client.search("test", limit=1)
                 
                 self.initialized = True
-                logger.info("Mem0 service initialized successfully")
+                logger.info("Mem0 service initialized successfully with multi-user support")
                 
             except AttributeError as e:
                 if "ConnectionTimeoutError" in str(e) or "aiohttp" in str(e):
@@ -399,8 +420,255 @@ class Mem0Service:
     async def cleanup(self):
         """Cleanup Mem0 resources"""
         try:
+            if self.redis_client:
+                await self.redis_client.close()
             self.client = None
+            self.redis_client = None
             self.initialized = False
             logger.info("Mem0 service cleaned up")
         except Exception as e:
             logger.error("Error cleaning up Mem0 service", error=str(e))
+    
+    # ============================================
+    # Trinity BRICKS I MEMORY - Multi-User Methods
+    # ============================================
+    
+    def _get_user_namespace(self, user_id: str) -> str:
+        """Generate unique namespace for each user (Trinity BRICKS requirement)"""
+        hash_obj = hashlib.sha256(user_id.encode())
+        return f"user_{hash_obj.hexdigest()[:16]}"
+    
+    async def _get_cache_key(self, user_id: str, key_suffix: str) -> str:
+        """Generate Redis cache key"""
+        return f"i_memory:{self._get_user_namespace(user_id)}:{key_suffix}"
+    
+    async def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+        """Get data from Redis cache"""
+        if not self.redis_client:
+            return None
+        try:
+            data = await self.redis_client.get(cache_key)
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            logger.warning("Cache get failed", error=str(e))
+            return None
+    
+    async def _set_cache(self, cache_key: str, data: Any, ttl: int = 300):
+        """Set data in Redis cache with TTL"""
+        if not self.redis_client:
+            return
+        try:
+            await self.redis_client.setex(cache_key, ttl, json.dumps(data))
+        except Exception as e:
+            logger.warning("Cache set failed", error=str(e))
+    
+    async def add(
+        self,
+        content: Dict[str, Any],
+        user_id: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Add memory with user isolation (Trinity BRICKS I MEMORY)
+        
+        Example:
+            await memory.add(
+                content={"developer": "Fletcher", "status": "verified"},
+                user_id="james@fullpotential.com",
+                metadata={"category": "developer_assessment"}
+            )
+        """
+        user_namespace = self._get_user_namespace(user_id)
+        
+        if not self.initialized:
+            # Mock mode
+            memory_id = f"mock_{user_namespace}_{datetime.now().timestamp()}"
+            return {
+                "memory_id": memory_id,
+                "user_id": user_id,
+                "content": content,
+                "timestamp": datetime.now().isoformat(),
+                "mock": True
+            }
+        
+        try:
+            memory_text = json.dumps(content)
+            full_metadata = metadata or {}
+            full_metadata.update({
+                "original_user_id": user_id,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            result = self.client.add(
+                memory_text,
+                user_id=user_namespace,
+                metadata=full_metadata
+            )
+            
+            # Invalidate cache
+            cache_key = await self._get_cache_key(user_id, "all_memories")
+            if self.redis_client:
+                await self.redis_client.delete(cache_key)
+            
+            logger.info("Memory added with user isolation", 
+                       user_id=user_id, memory_id=result.get("id"))
+            
+            return {
+                "memory_id": result.get("id"),
+                "user_id": user_id,
+                "content": content,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error("Failed to add memory", error=str(e), user_id=user_id)
+            raise Mem0Error(f"Failed to add memory: {str(e)}")
+    
+    async def search(
+        self,
+        query: str,
+        user_id: str,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Semantic search with user isolation (Trinity BRICKS I MEMORY)
+        
+        Example:
+            results = await memory.search(
+                query="What's Fletcher's status?",
+                user_id="james@fullpotential.com",
+                limit=5
+            )
+        """
+        user_namespace = self._get_user_namespace(user_id)
+        
+        # Try cache first
+        cache_key = await self._get_cache_key(user_id, f"search:{query}:{limit}")
+        cached = await self._get_from_cache(cache_key)
+        if cached:
+            logger.info("Returning cached search results", user_id=user_id)
+            return cached
+        
+        if not self.initialized:
+            # Mock mode
+            return [{
+                "memory_id": f"mock_{user_namespace}_{i}",
+                "content": {"text": f"Mock memory {i} for: {query}"},
+                "relevance_score": 0.9 - (i * 0.1),
+                "user_id": user_id,
+                "mock": True
+            } for i in range(min(limit, 3))]
+        
+        try:
+            memories = self.client.search(query, user_id=user_namespace, limit=limit)
+            
+            results = []
+            for memory in memories:
+                try:
+                    content = json.loads(memory.get("memory", "{}"))
+                except:
+                    content = {"text": memory.get("memory", "")}
+                
+                results.append({
+                    "memory_id": memory.get("id"),
+                    "content": content,
+                    "relevance_score": memory.get("score", 0),
+                    "user_id": user_id,
+                    "metadata": memory.get("metadata", {})
+                })
+            
+            # Cache results
+            await self._set_cache(cache_key, results, ttl=180)
+            
+            logger.info("Searched memories", user_id=user_id, results_count=len(results))
+            return results
+        except Exception as e:
+            logger.error("Failed to search memories", error=str(e), user_id=user_id)
+            raise Mem0Error(f"Failed to search memories: {str(e)}")
+    
+    async def get_all(
+        self,
+        user_id: str,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all memories for user (Trinity BRICKS I MEMORY)
+        
+        Example:
+            all_memories = await memory.get_all(
+                user_id="james@fullpotential.com"
+            )
+        """
+        user_namespace = self._get_user_namespace(user_id)
+        
+        # Try cache
+        cache_key = await self._get_cache_key(user_id, "all_memories")
+        cached = await self._get_from_cache(cache_key)
+        if cached:
+            return cached[:limit]
+        
+        if not self.initialized:
+            # Mock mode
+            return [{
+                "memory_id": f"mock_{user_namespace}_{i}",
+                "content": {"text": f"Mock memory {i} for user {user_id}"},
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "mock": True
+            } for i in range(min(limit, 5))]
+        
+        try:
+            memories = self.client.get_all(user_id=user_namespace)
+            
+            results = []
+            for memory in memories[:limit]:
+                try:
+                    content = json.loads(memory.get("memory", "{}"))
+                except:
+                    content = {"text": memory.get("memory", "")}
+                
+                results.append({
+                    "memory_id": memory.get("id"),
+                    "content": content,
+                    "user_id": user_id,
+                    "timestamp": memory.get("metadata", {}).get("timestamp", ""),
+                    "metadata": memory.get("metadata", {})
+                })
+            
+            # Cache results
+            await self._set_cache(cache_key, results, ttl=300)
+            
+            logger.info("Retrieved all memories", user_id=user_id, count=len(results))
+            return results
+        except Exception as e:
+            logger.error("Failed to get all memories", error=str(e), user_id=user_id)
+            raise Mem0Error(f"Failed to get all memories: {str(e)}")
+    
+    async def delete(
+        self,
+        memory_id: str,
+        user_id: str
+    ) -> bool:
+        """
+        Delete memory with user ownership verification (Trinity BRICKS I MEMORY)
+        """
+        user_namespace = self._get_user_namespace(user_id)
+        
+        if not self.initialized:
+            logger.info("Mock delete memory", memory_id=memory_id, user_id=user_id)
+            return True
+        
+        try:
+            self.client.delete(memory_id, user_id=user_namespace)
+            
+            # Invalidate cache
+            cache_key = await self._get_cache_key(user_id, "all_memories")
+            if self.redis_client:
+                await self.redis_client.delete(cache_key)
+            
+            logger.info("Memory deleted", memory_id=memory_id, user_id=user_id)
+            return True
+        except Exception as e:
+            logger.error("Failed to delete memory", error=str(e), memory_id=memory_id)
+            return False

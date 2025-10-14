@@ -687,3 +687,207 @@ async def delete_memory(memory_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete memory: {str(e)}"
         )
+
+
+# ============================================
+# Trinity BRICKS I MEMORY - Specification Endpoints
+# ============================================
+
+class MemoryAddRequest(BaseModel):
+    """Trinity BRICKS I MEMORY - Add memory request"""
+    user_id: str = Field(..., description="User identifier for isolation")
+    content: Dict[str, Any] = Field(..., description="Memory content")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata")
+
+
+class MemorySearchRequest(BaseModel):
+    """Trinity BRICKS I MEMORY - Search request"""
+    user_id: str
+    query: str
+    limit: int = Field(default=10, ge=1, le=100)
+
+
+@router.post("/add")
+async def add_memory_trinity(request: MemoryAddRequest):
+    """
+    Add memory with user isolation (Trinity BRICKS I MEMORY)
+    
+    Example:
+        POST /memory/add
+        {
+            "user_id": "james@fullpotential.com",
+            "content": {
+                "developer": "Fletcher",
+                "brick": "I PROACTIVE",
+                "status": "verified_working"
+            },
+            "metadata": {"category": "developer_assessment"}
+        }
+    """
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        result = await mem0_service.add(
+            content=request.content,
+            user_id=request.user_id,
+            metadata=request.metadata
+        )
+        
+        logger.info("Memory added via Trinity endpoint",
+                   user_id=request.user_id,
+                   memory_id=result.get("memory_id"))
+        
+        return {
+            "status": "success",
+            "data": result,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("Failed to add memory", error=str(e), user_id=request.user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add memory: {str(e)}"
+        )
+
+
+@router.get("/search")
+async def search_memory_trinity(
+    user_id: str,
+    query: str,
+    limit: int = 10
+):
+    """
+    Semantic search with user isolation (Trinity BRICKS I MEMORY)
+    
+    Example:
+        GET /memory/search?user_id=james@fullpotential.com&query=Fletcher&limit=5
+    """
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        results = await mem0_service.search(
+            query=query,
+            user_id=user_id,
+            limit=limit
+        )
+        
+        logger.info("Memory search completed",
+                   user_id=user_id,
+                   query=query,
+                   results_count=len(results))
+        
+        return {
+            "status": "success",
+            "query": query,
+            "user_id": user_id,
+            "results": results,
+            "count": len(results),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("Failed to search memories", error=str(e), user_id=user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to search memories: {str(e)}"
+        )
+
+
+@router.get("/get-all")
+async def get_all_memories_trinity(
+    user_id: str,
+    limit: int = 100
+):
+    """
+    Get all memories for user (Trinity BRICKS I MEMORY)
+    
+    Example:
+        GET /memory/get-all?user_id=james@fullpotential.com&limit=50
+    """
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        memories = await mem0_service.get_all(
+            user_id=user_id,
+            limit=limit
+        )
+        
+        logger.info("Retrieved all memories",
+                   user_id=user_id,
+                   count=len(memories))
+        
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "memories": memories,
+            "count": len(memories),
+            "limit": limit,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get all memories", error=str(e), user_id=user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get all memories: {str(e)}"
+        )
+
+
+@router.delete("/delete")
+async def delete_memory_trinity(
+    memory_id: str,
+    user_id: str
+):
+    """
+    Delete memory with ownership verification (Trinity BRICKS I MEMORY)
+    
+    Example:
+        DELETE /memory/delete?memory_id=abc123&user_id=james@fullpotential.com
+    """
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        deleted = await mem0_service.delete(
+            memory_id=memory_id,
+            user_id=user_id
+        )
+        
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Memory {memory_id} not found or access denied"
+            )
+        
+        logger.info("Memory deleted",
+                   memory_id=memory_id,
+                   user_id=user_id)
+        
+        return {
+            "status": "success",
+            "message": "Memory deleted successfully",
+            "memory_id": memory_id,
+            "user_id": user_id,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to delete memory", error=str(e), memory_id=memory_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete memory: {str(e)}"
+        )
