@@ -1,1 +1,0 @@
-AI services temporarily unavailable - using template response
