@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic, i_memory
 
 api_router = APIRouter()
 
@@ -39,6 +39,13 @@ api_router.include_router(
     memory.router,
     prefix="/memory",
     tags=["enhanced-memory"]
+)
+
+# I MEMORY BRICK - Trinity BRICKS (UBIC v1.5 Compliant)
+api_router.include_router(
+    i_memory.router,
+    prefix="/i-memory",
+    tags=["i-memory-brick", "trinity-bricks"]
 )
 
 # Real Orchestration System (Client Requested)
