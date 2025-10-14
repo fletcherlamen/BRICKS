@@ -6,24 +6,39 @@ import {
   MagnifyingGlassIcon,
   UserIcon,
   TrashIcon,
-  ClockIcon
+  ClockIcon,
+  FunnelIcon,
+  XMarkIcon,
+  TagIcon,
+  FolderIcon
 } from '@heroicons/react/24/outline';
 
 const TrinityMemory = () => {
   const [memories, setMemories] = useState([]);
+  const [allMemories, setAllMemories] = useState([]); // Store all memories for filtering
   const [currentUser, setCurrentUser] = useState('james@fullpotential.com');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   
   // Add memory form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newMemory, setNewMemory] = useState({
-    content: {}
-  });
   const [contentKey, setContentKey] = useState('');
   const [contentValue, setContentValue] = useState('');
   const [contentPairs, setContentPairs] = useState([]);
+  const [metadataCategory, setMetadataCategory] = useState('general');
+
+  // Available categories
+  const categories = [
+    { value: '', label: 'All Categories' },
+    { value: 'developer_assessment', label: 'Developer Assessment' },
+    { value: 'project_context', label: 'Project Context' },
+    { value: 'team_member', label: 'Team Member' },
+    { value: 'code_audit', label: 'Code Audit' },
+    { value: 'payment', label: 'Payment' },
+    { value: 'general', label: 'General' }
+  ];
 
   useEffect(() => {
     if (currentUser) {
@@ -31,6 +46,11 @@ const TrinityMemory = () => {
       fetchUserStats();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    // Apply filters when category or search changes
+    applyFilters();
+  }, [selectedCategory, searchQuery, allMemories]);
 
   const fetchUserMemories = async () => {
     setLoading(true);
@@ -41,7 +61,7 @@ const TrinityMemory = () => {
       const data = await response.json();
       
       if (data.status === 'success') {
-        setMemories(data.memories || []);
+        setAllMemories(data.memories || []);
       }
     } catch (error) {
       console.error('Error fetching memories:', error);
@@ -65,27 +85,27 @@ const TrinityMemory = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchUserMemories();
-      return;
+  const applyFilters = () => {
+    let filtered = [...allMemories];
+
+    // Filter by category
+    if (selectedCategory) {
+      filtered = filtered.filter(mem => 
+        mem.metadata?.category === selectedCategory
+      );
     }
 
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/search?user_id=${encodeURIComponent(currentUser)}&query=${encodeURIComponent(searchQuery)}&limit=50`
-      );
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        setMemories(data.results || []);
-      }
-    } catch (error) {
-      console.error('Error searching memories:', error);
-    } finally {
-      setLoading(false);
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(mem => {
+        const contentStr = JSON.stringify(mem.content).toLowerCase();
+        const metadataStr = JSON.stringify(mem.metadata).toLowerCase();
+        return contentStr.includes(query) || metadataStr.includes(query);
+      });
     }
+
+    setMemories(filtered);
   };
 
   const handleAddMemory = async () => {
@@ -104,7 +124,7 @@ const TrinityMemory = () => {
           body: JSON.stringify({
             user_id: currentUser,
             content: content,
-            metadata: { added_via: 'ui' }
+            metadata: { category: metadataCategory }
           })
         }
       );
@@ -115,6 +135,7 @@ const TrinityMemory = () => {
         alert('Memory added successfully!');
         setShowAddForm(false);
         setContentPairs([]);
+        setMetadataCategory('general');
         fetchUserMemories();
         fetchUserStats();
       } else {
@@ -163,6 +184,13 @@ const TrinityMemory = () => {
   const removeContentPair = (index) => {
     setContentPairs(contentPairs.filter((_, i) => i !== index));
   };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+  };
+
+  const hasActiveFilters = searchQuery || selectedCategory;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -231,10 +259,8 @@ const TrinityMemory = () => {
                 <span className="text-sm font-semibold">{stats.user_stats.total_memories || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Cache:</span>
-                <span className="text-sm font-semibold">
-                  {stats.user_stats.cache_enabled ? '✅ Enabled' : '❌ Disabled'}
-                </span>
+                <span className="text-sm text-gray-600">Filtered:</span>
+                <span className="text-sm font-semibold">{memories.length}</span>
               </div>
             </div>
           ) : (
@@ -272,13 +298,29 @@ const TrinityMemory = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Memory</h3>
           
           <div className="space-y-4">
+            {/* Category Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={metadataCategory}
+                onChange={(e) => setMetadataCategory(e.target.value)}
+                className="input w-full"
+              >
+                {categories.filter(c => c.value).map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Content Key-Value Pairs */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Memory Content (Key-Value Pairs)
               </label>
               
-              <div className="space-y-2">
+              <div className="space-y-2 mb-3">
                 {contentPairs.map((pair, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                     <span className="text-sm font-medium text-gray-700">{pair.key}:</span>
@@ -293,12 +335,13 @@ const TrinityMemory = () => {
                 ))}
               </div>
 
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Key (e.g., developer)"
                   value={contentKey}
                   onChange={(e) => setContentKey(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && contentValue && addContentPair()}
                   className="input flex-1"
                 />
                 <input
@@ -306,6 +349,7 @@ const TrinityMemory = () => {
                   placeholder="Value (e.g., Fletcher)"
                   value={contentValue}
                   onChange={(e) => setContentValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && contentKey && addContentPair()}
                   className="input flex-1"
                 />
                 <button
@@ -332,6 +376,7 @@ const TrinityMemory = () => {
                   setContentPairs([]);
                   setContentKey('');
                   setContentValue('');
+                  setMetadataCategory('general');
                 }}
                 className="btn-outline flex-1"
               >
@@ -342,41 +387,79 @@ const TrinityMemory = () => {
         </motion.div>
       )}
 
-      {/* Search */}
+      {/* Enhanced Search & Filters */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="card"
       >
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Semantic search: 'What's Fletcher's status?' or 'developer assessments'"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="input pl-10 w-full"
-            />
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search: 'Fletcher', 'developer', 'verified_working', etc."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input pl-10 w-full"
+              />
+            </div>
+            
+            {/* Category Filter */}
+            <div className="flex items-center gap-2">
+              <FolderIcon className="h-5 w-5 text-gray-400" />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="input min-w-[200px]"
+              >
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="btn-outline whitespace-nowrap"
+                title="Clear all filters"
+              >
+                <XMarkIcon className="h-5 w-5 inline mr-1" />
+                Clear
+              </button>
+            )}
           </div>
-          <button
-            onClick={handleSearch}
-            className="btn-primary"
-          >
-            Search
-          </button>
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                fetchUserMemories();
-              }}
-              className="btn-outline"
-            >
-              Clear
-            </button>
+
+          {/* Active Filters Display */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-200">
+              <span className="text-sm text-gray-600">Active filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+                  Search: "{searchQuery}"
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="ml-2 text-blue-600 hover:text-blue-800"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </span>
+              )}
+              {selectedCategory && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
+                  Category: {categories.find(c => c.value === selectedCategory)?.label}
+                  <button
+                    onClick={() => setSelectedCategory('')}
+                    className="ml-2 text-green-600 hover:text-green-800"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </span>
+              )}
+            </div>
           )}
         </div>
       </motion.div>
@@ -396,23 +479,26 @@ const TrinityMemory = () => {
             <CircleStackIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No memories found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery
-                ? 'Try a different search query'
+              {hasActiveFilters
+                ? 'Try adjusting your filters or clear them'
                 : 'Add your first memory to get started'
               }
             </p>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="btn-primary"
-            >
-              Add Memory
-            </button>
+            {hasActiveFilters ? (
+              <button onClick={clearFilters} className="btn-primary">
+                Clear Filters
+              </button>
+            ) : (
+              <button onClick={() => setShowAddForm(true)} className="btn-primary">
+                Add Memory
+              </button>
+            )}
           </motion.div>
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                {searchQuery ? `Search Results (${memories.length})` : `All Memories (${memories.length})`}
+                {hasActiveFilters ? `Filtered Results (${memories.length})` : `All Memories (${memories.length})`}
               </h3>
               <span className="text-sm text-gray-500">
                 User: {currentUser}
@@ -434,11 +520,12 @@ const TrinityMemory = () => {
                     </div>
                     <div>
                       <span className="text-xs text-gray-500">
-                        Memory ID: {memory.memory_id?.substring(0, 20)}...
+                        ID: {memory.memory_id?.substring(0, 20)}...
                       </span>
-                      {memory.relevance_score && (
-                        <span className="ml-2 text-xs text-green-600 font-semibold">
-                          Relevance: {(memory.relevance_score * 100).toFixed(0)}%
+                      {memory.metadata?.category && (
+                        <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                          <FolderIcon className="h-3 w-3 mr-1" />
+                          {categories.find(c => c.value === memory.metadata.category)?.label || memory.metadata.category}
                         </span>
                       )}
                     </div>
@@ -458,7 +545,7 @@ const TrinityMemory = () => {
                     <div className="space-y-2">
                       {Object.entries(memory.content).map(([key, value]) => (
                         <div key={key} className="flex">
-                          <span className="text-sm font-semibold text-gray-700 min-w-[120px]">
+                          <span className="text-sm font-semibold text-gray-700 min-w-[150px]">
                             {key}:
                           </span>
                           <span className="text-sm text-gray-900">
@@ -480,8 +567,9 @@ const TrinityMemory = () => {
                       {Object.entries(memory.metadata).map(([key, value]) => (
                         <span
                           key={key}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700"
                         >
+                          <TagIcon className="h-3 w-3 mr-1" />
                           {key}: {String(value)}
                         </span>
                       ))}
@@ -496,7 +584,7 @@ const TrinityMemory = () => {
                     {formatDate(memory.timestamp)}
                   </div>
                   <span className="badge badge-outline">
-                    {memory.source || 'mem0'}
+                    {memory.source || 'database'}
                   </span>
                 </div>
               </motion.div>
@@ -521,12 +609,12 @@ const TrinityMemory = () => {
             <p className="text-gray-600">Each user has private memory namespace</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Semantic Search</p>
-            <p className="text-gray-600">Natural language queries with AI</p>
+            <p className="font-semibold text-gray-700">Enhanced Search</p>
+            <p className="text-gray-600">Search by content + category filtering</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Persistent Storage</p>
-            <p className="text-gray-600">Memories survive container restarts</p>
+            <p className="font-semibold text-gray-700">VPS Database</p>
+            <p className="text-gray-600">All data persists on 64.227.99.111</p>
           </div>
         </div>
       </motion.div>

@@ -60,16 +60,14 @@ class Mem0Service:
             
             # Initialize Mem0 client with error handling for aiohttp compatibility
             try:
-                self.client = mem0.Mem0(
-                    api_key=settings.MEM0_API_KEY,
-                    base_url=settings.MEM0_BASE_URL
-                )
+                # Use new MemoryClient API (mem0ai >= 0.1.0)
+                self.client = mem0.MemoryClient(api_key=settings.MEM0_API_KEY)
                 
                 # Test the client with a simple operation
-                test_result = self.client.search("test", limit=1)
+                test_result = self.client.search("test", user_id="test_user", limit=1)
                 
                 self.initialized = True
-                logger.info("Mem0 service initialized successfully with multi-user support")
+                logger.info("Mem0 service initialized successfully with REAL semantic search")
                 
             except AttributeError as e:
                 if "ConnectionTimeoutError" in str(e) or "aiohttp" in str(e):
@@ -494,6 +492,7 @@ class Mem0Service:
             }
         
         try:
+            # Format for new Mem0 API (>= 0.1.0)
             memory_text = json.dumps(content)
             full_metadata = metadata or {}
             full_metadata.update({
@@ -501,8 +500,9 @@ class Mem0Service:
                 "timestamp": datetime.now().isoformat()
             })
             
+            # New API format: messages parameter
             result = self.client.add(
-                memory_text,
+                messages=[{"role": "user", "content": memory_text}],
                 user_id=user_namespace,
                 metadata=full_metadata
             )

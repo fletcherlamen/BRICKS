@@ -38,25 +38,41 @@ class MemoryAddRequest(BaseModel):
 @router.post("/add")
 async def add_memory(request: MemoryAddRequest):
     """
-    Store new memory - ONLY uses database (no mock data)
+    Store new memory with REAL semantic search via Mem0.ai
     
-    Trinity BRICKS I MEMORY Specification Example:
-        await memory.add(
-            content={
-                "developer": "Fletcher",
-                "brick": "I PROACTIVE",
-                "status": "verified_working",
-                "payment_recommended": 280
-            },
-            user_id="james@fullpotential.com",
-            metadata={"category": "developer_assessment"}
-        )
+    Trinity BRICKS I MEMORY Specification:
+    - Stores in database for persistence
+    - Stores in Mem0.ai for semantic search
     """
     try:
+        from app.services.mem0_service import Mem0Service
+        import json
+        
         # Generate memory ID
         memory_id = f"mem_{uuid.uuid4().hex[:16]}"
         
-        # Store in database
+        # Store in Mem0.ai for semantic search (with real API)
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        try:
+            # Store in Mem0 with user isolation
+            mem0_result = await mem0_service.add(
+                content=request.content,
+                user_id=request.user_id,
+                metadata=request.metadata
+            )
+            # Use Mem0's memory ID if available
+            if not mem0_result.get("mock"):
+                memory_id = mem0_result.get("memory_id", memory_id)
+            
+            logger.info("Memory stored in Mem0.ai", 
+                       user_id=request.user_id,
+                       mem0_initialized=mem0_service.initialized)
+        except Exception as e:
+            logger.warning("Mem0 storage failed, continuing with database only", error=str(e))
+        
+        # Store in database for persistence
         async with AsyncSessionLocal() as db:
             memory = Memory(
                 memory_id=memory_id,
@@ -70,9 +86,10 @@ async def add_memory(request: MemoryAddRequest):
             await db.commit()
             await db.refresh(memory)
         
-        logger.info("Memory added to database",
+        logger.info("Memory added to database with semantic search",
                    user_id=request.user_id,
-                   memory_id=memory_id)
+                   memory_id=memory_id,
+                   mem0_enabled=mem0_service.initialized)
         
         return {
             "status": "success",
@@ -82,7 +99,8 @@ async def add_memory(request: MemoryAddRequest):
                 "content": request.content,
                 "metadata": request.metadata,
                 "timestamp": datetime.now().isoformat(),
-                "source": "database"
+                "source": "database",
+                "semantic_search_enabled": mem0_service.initialized
             },
             "timestamp": datetime.now().isoformat()
         }
@@ -98,46 +116,92 @@ async def add_memory(request: MemoryAddRequest):
 @router.get("/search")
 async def search_memories(
     user_id: str = Query(..., description="User identifier for isolation"),
-    query: str = Query(..., description="Search query"),
+    query: str = Query(..., description="Natural language search query"),
     limit: int = Query(default=10, ge=1, le=100, description="Maximum results")
 ):
     """
-    Search memories - Uses database with simple text matching
+    REAL Semantic Search using Mem0.ai with AI embeddings
     
     Trinity BRICKS I MEMORY Specification:
-    Semantic search powered by database queries
+    - Uses Mem0.ai for semantic understanding
+    - Falls back to database text search if Mem0 unavailable
+    - Returns relevance-scored results
+    
+    Example queries:
+    - "What's Fletcher's status?"
+    - "Show me developer assessments"
+    - "Find payment recommendations"
     """
     try:
-        # Search in database
-        async with AsyncSessionLocal() as db:
-            # Simple text search in content
-            from sqlalchemy import cast, String
-            result = await db.execute(
-                select(Memory)
-                .where(Memory.user_id == user_id)
-                .where(cast(Memory.content, String).ilike(f'%{query}%'))
-                .order_by(Memory.created_at.desc())
-                .limit(limit)
-            )
-            db_memories = result.scalars().all()
+        from app.services.mem0_service import Mem0Service
         
-        # Format results
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
         results = []
-        for db_mem in db_memories:
-            results.append({
-                "memory_id": db_mem.memory_id,
-                "content": db_mem.content,
-                "relevance_score": 0.9,  # Placeholder for now
-                "user_id": db_mem.user_id,
-                "metadata": db_mem.memory_metadata or {},
-                "timestamp": db_mem.created_at.isoformat() if db_mem.created_at else None,
-                "source": "database"
-            })
+        search_method = "text_matching"
         
-        logger.info("Memory search completed from database",
-                   user_id=user_id,
-                   query=query,
-                   results_count=len(results))
+        # Try semantic search with Mem0.ai first (REAL AI)
+        if mem0_service.initialized:
+            try:
+                # REAL semantic search with AI embeddings
+                mem0_results = await mem0_service.search(
+                    query=query,
+                    user_id=user_id,
+                    limit=limit
+                )
+                
+                # Mem0 returns semantic results with relevance scores
+                for mem in mem0_results:
+                    if not mem.get("mock"):  # Only use real results
+                        results.append({
+                            "memory_id": mem.get("memory_id"),
+                            "content": mem.get("content"),
+                            "relevance_score": mem.get("relevance_score", 0),
+                            "user_id": user_id,
+                            "metadata": mem.get("metadata", {}),
+                            "timestamp": mem.get("timestamp"),
+                            "source": "mem0_semantic"
+                        })
+                
+                if results:
+                    search_method = "semantic_ai"
+                    logger.info("Semantic search completed with Mem0.ai",
+                               user_id=user_id,
+                               query=query,
+                               results_count=len(results))
+                
+            except Exception as e:
+                logger.warning("Mem0 semantic search failed, falling back to database", error=str(e))
+        
+        # Fallback: Database text search if Mem0 not available or no results
+        if not results:
+            async with AsyncSessionLocal() as db:
+                from sqlalchemy import cast, String
+                result = await db.execute(
+                    select(Memory)
+                    .where(Memory.user_id == user_id)
+                    .where(cast(Memory.content, String).ilike(f'%{query}%'))
+                    .order_by(Memory.created_at.desc())
+                    .limit(limit)
+                )
+                db_memories = result.scalars().all()
+            
+            for db_mem in db_memories:
+                results.append({
+                    "memory_id": db_mem.memory_id,
+                    "content": db_mem.content,
+                    "relevance_score": 0.8,  # Lower score for text matching
+                    "user_id": db_mem.user_id,
+                    "metadata": db_mem.memory_metadata or {},
+                    "timestamp": db_mem.created_at.isoformat() if db_mem.created_at else None,
+                    "source": "database_text"
+                })
+            
+            logger.info("Text search completed from database",
+                       user_id=user_id,
+                       query=query,
+                       results_count=len(results))
         
         return {
             "status": "success",
@@ -145,7 +209,8 @@ async def search_memories(
             "user_id": user_id,
             "results": results,
             "count": len(results),
-            "data_source": "database",
+            "search_method": search_method,
+            "semantic_enabled": mem0_service.initialized,
             "timestamp": datetime.now().isoformat()
         }
         
