@@ -21,6 +21,8 @@ const TrinityMemory = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
+  const [searchMethod, setSearchMethod] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   
   // Add memory form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -48,8 +50,19 @@ const TrinityMemory = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    // Apply filters when category or search changes
-    applyFilters();
+    // Debounce search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        // Use semantic search API when there's a query
+        handleSemanticSearch();
+      } else {
+        // Apply category filter client-side when no search query
+        setSearchMethod('');
+        applyFilters();
+      }
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
   }, [selectedCategory, searchQuery, allMemories]);
 
   const fetchUserMemories = async () => {
@@ -85,6 +98,51 @@ const TrinityMemory = () => {
     }
   };
 
+  const handleSemanticSearch = async () => {
+    if (!searchQuery.trim()) {
+      applyFilters();
+      return;
+    }
+
+    setIsSearching(true);
+    setLoading(true);
+    try {
+      // Call backend API for REAL semantic search with Mem0.ai
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/memory/search?user_id=${encodeURIComponent(currentUser)}&query=${encodeURIComponent(searchQuery)}&limit=50`
+      );
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        let results = data.results || [];
+        
+        // Apply category filter to semantic results
+        if (selectedCategory) {
+          results = results.filter(mem => 
+            mem.metadata?.category === selectedCategory
+          );
+        }
+        
+        setMemories(results);
+        setSearchMethod(data.search_method || 'unknown');
+        
+        // Log for debugging
+        console.log('Semantic search completed:', {
+          query: searchQuery,
+          method: data.search_method,
+          semantic_enabled: data.semantic_enabled,
+          results: results.length
+        });
+      }
+    } catch (error) {
+      console.error('Error searching memories:', error);
+      setSearchMethod('error');
+    } finally {
+      setLoading(false);
+      setIsSearching(false);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...allMemories];
 
@@ -93,16 +151,6 @@ const TrinityMemory = () => {
       filtered = filtered.filter(mem => 
         mem.metadata?.category === selectedCategory
       );
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(mem => {
-        const contentStr = JSON.stringify(mem.content).toLowerCase();
-        const metadataStr = JSON.stringify(mem.metadata).toLowerCase();
-        return contentStr.includes(query) || metadataStr.includes(query);
-      });
     }
 
     setMemories(filtered);
@@ -400,11 +448,27 @@ const TrinityMemory = () => {
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search: 'Fletcher', 'developer', 'verified_working', etc."
+                placeholder="Semantic search: 'What's Fletcher's status?', 'Who should I pay?', etc."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input pl-10 w-full"
               />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="spinner h-5 w-5"></div>
+                </div>
+              )}
+              {searchMethod && searchQuery && !isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    searchMethod === 'semantic_ai' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {searchMethod === 'semantic_ai' ? '🤖 AI' : '📝 Text'}
+                  </span>
+                </div>
+              )}
             </div>
             
             {/* Category Filter */}
@@ -497,9 +561,16 @@ const TrinityMemory = () => {
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {hasActiveFilters ? `Filtered Results (${memories.length})` : `All Memories (${memories.length})`}
-              </h3>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {hasActiveFilters ? `Filtered Results (${memories.length})` : `All Memories (${memories.length})`}
+                </h3>
+                {searchMethod === 'semantic_ai' && searchQuery && (
+                  <p className="text-xs text-green-600 mt-1">
+                    🤖 AI Semantic Search - Results ranked by relevance
+                  </p>
+                )}
+              </div>
               <span className="text-sm text-gray-500">
                 User: {currentUser}
               </span>
@@ -522,6 +593,11 @@ const TrinityMemory = () => {
                       <span className="text-xs text-gray-500">
                         ID: {memory.memory_id?.substring(0, 20)}...
                       </span>
+                      {memory.relevance_score && (
+                        <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-700 font-semibold">
+                          🎯 {(memory.relevance_score * 100).toFixed(1)}% relevant
+                        </span>
+                      )}
                       {memory.metadata?.category && (
                         <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
                           <FolderIcon className="h-3 w-3 mr-1" />
