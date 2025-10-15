@@ -1,24 +1,24 @@
 services:
-  # PostgreSQL Database (Local Development)
-  postgres:
-    image: postgres:15-alpine
-    container_name: brick_orchestration_postgres
-    environment:
-      POSTGRES_DB: brick_orchestration
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - brick_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d brick_orchestration"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  # PostgreSQL Database (Local Development) - DISABLED: Using VPS Database
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: brick_orchestration_postgres
+  #   environment:
+  #     POSTGRES_DB: brick_orchestration
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - brick_network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U user -d brick_orchestration"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
 
   # Redis for caching and session management
   redis:
@@ -48,6 +48,8 @@ services:
     env_file:
       - .env
     environment:
+      # Trinity BRICKS I MEMORY - VPS Database (Override .env)
+      - DATABASE_URL=postgresql://user:password@64.227.99.111:5432/brick_orchestration
       # Redis URL
       - REDIS_URL=redis://redis:6379
       # Environment settings

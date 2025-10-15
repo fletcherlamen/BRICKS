@@ -62,9 +62,9 @@ async def add_memory(request: MemoryAddRequest):
                 user_id=request.user_id,
                 metadata=request.metadata
             )
-            # Use Mem0's memory ID if available
-            if not mem0_result.get("mock"):
-                memory_id = mem0_result.get("memory_id", memory_id)
+            # Use Mem0's memory ID if available and not None
+            if not mem0_result.get("mock") and mem0_result.get("memory_id"):
+                memory_id = mem0_result.get("memory_id")
             
             logger.info("Memory stored in Mem0.ai", 
                        user_id=request.user_id,
