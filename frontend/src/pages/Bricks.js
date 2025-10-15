@@ -213,11 +213,11 @@ const Bricks = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Revenue Potential:</span>
-                    <span className="text-green-600 font-medium">${brick.revenue_potential.toLocaleString()}</span>
+                    <span className="text-green-600 font-medium">${(brick.revenue_potential || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Progress:</span>
-                    <span className="text-gray-900">{Math.round((brick.actual_hours / brick.estimated_hours) * 100)}%</span>
+                    <span className="text-gray-900">{Math.round(((brick.actual_hours || 0) / (brick.estimated_hours || 1)) * 100)}%</span>
                   </div>
                   {brick.generated_files > 0 && (
                     <div className="flex justify-between text-sm">
