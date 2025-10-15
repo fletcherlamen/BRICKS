@@ -280,7 +280,7 @@ const Bricks = () => {
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-green-600">
-                    ${opportunity.estimated_revenue.toLocaleString()}
+                    ${(opportunity.estimated_revenue || 0).toLocaleString()}
                   </span>
                 </div>
 
