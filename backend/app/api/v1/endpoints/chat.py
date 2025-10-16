@@ -363,18 +363,22 @@ async def get_active_sessions():
     """
     try:
         async with AsyncSessionLocal() as db:
-            # Get unique session IDs from memories
+            # Get unique session IDs from memories (PostgreSQL JSON syntax)
             from app.models.memory import Memory
+            from sqlalchemy import cast, String
+            
+            session_id_expr = cast(Memory.content['session_id'], String)
+            type_expr = cast(Memory.content['type'], String)
             
             result = await db.execute(
                 select(
-                    func.json_extract(Memory.content, '$.session_id').label('session_id'),
+                    session_id_expr.label('session_id'),
                     func.count().label('message_count'),
                     func.max(Memory.created_at).label('last_activity')
                 ).where(
-                    func.json_extract(Memory.content, '$.type') == 'conversation'
+                    type_expr == 'conversation'
                 ).group_by(
-                    func.json_extract(Memory.content, '$.session_id')
+                    session_id_expr
                 ).order_by(
                     func.max(Memory.created_at).desc()
                 ).limit(50)

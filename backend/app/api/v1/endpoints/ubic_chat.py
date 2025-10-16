@@ -103,20 +103,23 @@ async def get_state():
     
     try:
         async with AsyncSessionLocal() as db:
-            # Count conversations
+            # Count conversations (PostgreSQL JSON syntax)
+            from sqlalchemy import cast, String
+            
+            type_expr = cast(Memory.content['type'], String)
+            session_id_expr = cast(Memory.content['session_id'], String)
+            
             result = await db.execute(
                 select(func.count(Memory.id)).where(
-                    func.json_extract(Memory.content, '$.type') == 'conversation'
+                    type_expr == 'conversation'
                 )
             )
             total_conversations = result.scalar() or 0
             
             # Count unique sessions
             result = await db.execute(
-                select(func.count(func.distinct(
-                    func.json_extract(Memory.content, '$.session_id')
-                ))).where(
-                    func.json_extract(Memory.content, '$.type') == 'conversation'
+                select(func.count(func.distinct(session_id_expr))).where(
+                    type_expr == 'conversation'
                 )
             )
             unique_sessions = result.scalar() or 0
@@ -124,7 +127,7 @@ async def get_state():
             # Count unique users (from memories with conversation type)
             result = await db.execute(
                 select(func.count(func.distinct(Memory.user_id))).where(
-                    func.json_extract(Memory.content, '$.type') == 'conversation'
+                    type_expr == 'conversation'
                 )
             )
             unique_users = result.scalar() or 0

@@ -44,7 +44,7 @@ email-validator==2.1.0
 # AI and ML libraries
 crewai==0.28.8
 openai>=1.13.3
-anthropic==0.7.8
+anthropic>=0.34.0
 google-generativeai==0.3.2
 mem0ai>=0.1.0
 
