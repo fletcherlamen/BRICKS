@@ -4,15 +4,22 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic_memory
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic_memory, ubic_chat
 
 api_router = APIRouter()
 
 # Trinity BRICKS I MEMORY - UBIC v1.5 Compliance (9 endpoints)
 api_router.include_router(
     ubic_memory.router,
-    prefix="/ubic",
+    prefix="/ubic/memory",
     tags=["trinity-i-memory-ubic"]
+)
+
+# Trinity BRICKS I CHAT - UBIC v1.5 Compliance (9 endpoints)
+api_router.include_router(
+    ubic_chat.router,
+    prefix="/ubic/chat",
+    tags=["trinity-i-chat-ubic"]
 )
 
 # UBIC v1.5 Required Endpoints Only
@@ -48,11 +55,11 @@ api_router.include_router(
     tags=["real-orchestration"]
 )
 
-# System Chat Interface (Milestone 1 Completion)
+# Trinity BRICKS I CHAT - Conversational Interface
 api_router.include_router(
     chat.router,
     prefix="/chat",
-    tags=["system-chat"]
+    tags=["trinity-i-chat", "system-chat"]
 )
 
 # BRICK-2 Handshake Stub (Milestone 1 Completion)

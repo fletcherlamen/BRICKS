@@ -1,5 +1,7 @@
 """
-Chat API Endpoints - System Chat Interface
+Trinity BRICKS I CHAT - Conversational AI with I MEMORY Integration
+
+Provides conversational interface using Claude API with persistent context via I MEMORY.
 """
 
 from typing import Dict, List, Optional, Any
@@ -9,9 +11,11 @@ import structlog
 import time
 import uuid
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.core.database import AsyncSessionLocal
-from app.models.orchestration import ChatMessage as ChatMessageModel, ChatSession as ChatSessionModel
+from app.core.config import settings
+import anthropic
+import json
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -20,6 +24,7 @@ router = APIRouter()
 class ChatMessage(BaseModel):
     """Request model for chat messages"""
     message: str
+    user_id: str = Field(default="anonymous", description="User identifier for I MEMORY isolation")
     session_id: Optional[str] = None
     context: Dict[str, Any] = {}
 
@@ -28,392 +33,390 @@ class ChatResponse(BaseModel):
     """Response model for chat messages"""
     response: str
     session_id: str
+    user_id: str
     timestamp: str
+    context_used: bool
+    memory_count: int
     metadata: Dict[str, Any] = {}
 
 
-class ChatSession(BaseModel):
-    """Chat session information"""
-    session_id: str
-    created_at: str
-    message_count: int
-    last_activity: str
+# Initialize Anthropic client
+claude_client = None
+if settings.ANTHROPIC_API_KEY and settings.ANTHROPIC_API_KEY != "your-anthropic-api-key":
+    try:
+        claude_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        logger.info("Claude API initialized for I CHAT")
+    except Exception as e:
+        logger.warning("Failed to initialize Claude API", error=str(e))
 
 
-# In-memory chat storage (combined with VPS database persistence)
-chat_sessions = {}
-chat_messages = {}
+async def get_conversation_context(user_id: str, session_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieve conversation context from I MEMORY"""
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        # Search for recent conversation in this session
+        memories = await mem0_service.search(
+            query=f"conversation session {session_id}",
+            user_id=user_id,
+            limit=limit
+        )
+        
+        logger.info("Retrieved conversation context from I MEMORY", 
+                   user_id=user_id, 
+                   session_id=session_id,
+                   memory_count=len(memories))
+        
+        return memories
+    except Exception as e:
+        logger.warning("Failed to retrieve context from I MEMORY", error=str(e))
+        return []
 
 
-async def _save_message_to_db(message_id: str, session_id: str, message_type: str, content: str, metadata: Dict[str, Any] = None):
-    """Save chat message to VPS database"""
-    async with AsyncSessionLocal() as db:
-        try:
-            db_message = ChatMessageModel(
-                message_id=message_id,
-                session_id=session_id,
-                message_type=message_type,
-                content=content,
-                message_metadata=metadata or {}
-            )
-            
-            db.add(db_message)
-            await db.commit()
-            logger.info("Chat message saved to VPS database", message_id=message_id, session_id=session_id)
-            
-        except Exception as e:
-            logger.error("Failed to save chat message to VPS database", error=str(e))
-            await db.rollback()
+async def store_conversation_in_memory(
+    user_id: str, 
+    session_id: str,
+    user_message: str,
+    assistant_response: str
+):
+    """Store conversation exchange in I MEMORY for persistent context"""
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        conversation_data = {
+            "type": "conversation",
+            "session_id": session_id,
+            "user_message": user_message,
+            "assistant_response": assistant_response,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        result = await mem0_service.add(
+            content=conversation_data,
+            user_id=user_id,
+            metadata={
+                "category": "conversation",
+                "session_id": session_id,
+                "brick": "I_CHAT"
+            }
+        )
+        
+        logger.info("Conversation stored in I MEMORY", 
+                   user_id=user_id,
+                   session_id=session_id,
+                   memory_id=result.get("memory_id") if result else None)
+        
+    except Exception as e:
+        logger.error("Failed to store conversation in I MEMORY", error=str(e), user_id=user_id, session_id=session_id)
 
 
-async def _update_session_in_db(session_id: str):
-    """Update or create chat session in VPS database"""
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(
-                select(ChatSessionModel).where(ChatSessionModel.session_id == session_id)
-            )
-            db_session = result.scalar_one_or_none()
-            
-            if db_session:
-                db_session.message_count += 1
-                db_session.last_activity = datetime.now()
+async def get_relevant_context(user_id: str, message: str, limit: int = 5) -> List[Dict[str, Any]]:
+    """Get relevant context from I MEMORY based on message content"""
+    try:
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        # Semantic search for relevant memories
+        memories = await mem0_service.search(
+            query=message,
+            user_id=user_id,
+            limit=limit
+        )
+        
+        logger.info("Retrieved relevant context from I MEMORY",
+                   user_id=user_id,
+                   memory_count=len(memories))
+        
+        return memories
+    except Exception as e:
+        logger.warning("Failed to retrieve relevant context", error=str(e))
+        return []
+
+
+def build_claude_messages(
+    current_message: str,
+    conversation_history: List[Dict[str, Any]],
+    relevant_context: List[Dict[str, Any]]
+) -> List[Dict[str, str]]:
+    """Build message array for Claude API with context"""
+    
+    messages = []
+    
+    # Add system context if available
+    if relevant_context:
+        context_summary = "Here's relevant context from memory:\n\n"
+        for ctx in relevant_context[:3]:
+            content = ctx.get("content", {})
+            if isinstance(content, dict):
+                context_summary += f"- {json.dumps(content)}\n"
             else:
-                db_session = ChatSessionModel(
-                    session_id=session_id,
-                    message_count=1
-                )
-                db.add(db_session)
-            
-            await db.commit()
-            logger.info("Chat session updated in VPS database", session_id=session_id)
-            
-        except Exception as e:
-            logger.error("Failed to update chat session in VPS database", error=str(e))
-            await db.rollback()
+                context_summary += f"- {content}\n"
+        
+        messages.append({
+            "role": "user",
+            "content": f"[System Context] {context_summary}"
+        })
+        messages.append({
+            "role": "assistant",
+            "content": "I understand the context. How can I help you?"
+        })
+    
+    # Add conversation history
+    for exchange in conversation_history[-5:]:  # Last 5 exchanges
+        content = exchange.get("content", {})
+        if isinstance(content, dict):
+            if "user_message" in content:
+                messages.append({
+                    "role": "user",
+                    "content": content["user_message"]
+                })
+            if "assistant_response" in content:
+                messages.append({
+                    "role": "assistant",
+                    "content": content["assistant_response"]
+                })
+    
+    # Add current message
+    messages.append({
+        "role": "user",
+        "content": current_message
+    })
+    
+    return messages
 
 
 @router.post("/message", response_model=ChatResponse)
 async def send_chat_message(message_request: ChatMessage):
-    """Process chat message and return orchestrated response"""
+    """
+    Trinity BRICKS I CHAT - Process message with Claude API and I MEMORY
+    
+    Features:
+    - Retrieves conversation context from I MEMORY
+    - Uses Claude API for intelligent responses
+    - Stores conversation in I MEMORY for persistence
+    - Supports multi-turn conversations
+    - User-isolated conversation history
+    """
     
     try:
         # Generate session ID if not provided
-        session_id = message_request.session_id or f"chat_{int(time.time() * 1000)}"
+        session_id = message_request.session_id or f"chat_{uuid.uuid4().hex[:16]}"
+        user_id = message_request.user_id
         
-        # Initialize session if new
-        if session_id not in chat_sessions:
-            chat_sessions[session_id] = {
-                "session_id": session_id,
-                "created_at": datetime.now().isoformat(),
-                "message_count": 0,
-                "last_activity": datetime.now().isoformat()
-            }
-            chat_messages[session_id] = []
+        logger.info("Processing I CHAT message",
+                   session_id=session_id,
+                   user_id=user_id,
+                   message_length=len(message_request.message))
         
-        # Store user message in VPS database
-        user_message_id = f"user_{int(time.time() * 1000)}"
-        await _save_message_to_db(user_message_id, session_id, "user", message_request.message)
+        # Get conversation history from I MEMORY
+        conversation_history = await get_conversation_context(user_id, session_id)
         
-        # Store user message in memory
-        user_message = {
-            "id": user_message_id,
-            "type": "user",
-            "content": message_request.message,
-            "timestamp": datetime.now().isoformat(),
-            "session_id": session_id
-        }
-        chat_messages[session_id].append(user_message)
+        # Get relevant context from I MEMORY
+        relevant_context = await get_relevant_context(user_id, message_request.message)
         
-        # Update session in VPS database and memory
-        await _update_session_in_db(session_id)
-        chat_sessions[session_id]["message_count"] += 1
-        chat_sessions[session_id]["last_activity"] = datetime.now().isoformat()
-        
-        # Process message through orchestration system
-        response_content, metadata = await process_chat_message(
+        # Build messages for Claude
+        claude_messages = build_claude_messages(
             message_request.message,
-            session_id,
-            message_request.context
+            conversation_history,
+            relevant_context
         )
         
-        # Store system response in VPS database
-        system_message_id = f"system_{int(time.time() * 1000)}"
-        await _save_message_to_db(system_message_id, session_id, "system", response_content, metadata)
+        # Generate response with Claude
+        if claude_client:
+            try:
+                response = claude_client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=2000,
+                    system="You are I CHAT, a helpful AI assistant that is part of the Trinity BRICKS system. You have access to persistent memory and can help users with various tasks. Be conversational, helpful, and remember context from previous conversations.",
+                    messages=claude_messages
+                )
+                
+                assistant_response = response.content[0].text
+                
+                logger.info("Claude API response received",
+                           response_length=len(assistant_response))
+                
+            except Exception as e:
+                logger.error("Claude API call failed", error=str(e))
+                assistant_response = (
+                    "I understand your message. However, I'm currently in enhanced mock mode. "
+                    "I can still help you, but my responses may be limited. "
+                    "Your message has been stored in memory for future reference."
+                )
+        else:
+            # Mock mode
+            assistant_response = (
+                f"I received your message: \"{message_request.message}\"\n\n"
+                f"I'm I CHAT, your conversational AI assistant. "
+                f"I'm currently in mock mode (Claude API not configured), but I can still help you! "
+                f"I have access to {len(relevant_context)} relevant memories and {len(conversation_history)} conversation history items.\n\n"
+                f"How can I assist you today?"
+            )
         
-        # Store system response in memory
-        system_message = {
-            "id": system_message_id,
-            "type": "system",
-            "content": response_content,
-            "timestamp": datetime.now().isoformat(),
-            "session_id": session_id,
-            "metadata": metadata
-        }
-        chat_messages[session_id].append(system_message)
-        
-        logger.info("Chat message processed", 
-                   session_id=session_id,
-                   message_length=len(message_request.message),
-                   response_length=len(response_content))
+        # Store conversation in I MEMORY
+        await store_conversation_in_memory(
+            user_id,
+            session_id,
+            message_request.message,
+            assistant_response
+        )
         
         return ChatResponse(
-            response=response_content,
+            response=assistant_response,
             session_id=session_id,
+            user_id=user_id,
             timestamp=datetime.now().isoformat(),
-            metadata=metadata
+            context_used=len(relevant_context) > 0 or len(conversation_history) > 0,
+            memory_count=len(relevant_context) + len(conversation_history),
+            metadata={
+                "conversation_history_count": len(conversation_history),
+                "relevant_context_count": len(relevant_context),
+                "claude_enabled": claude_client is not None,
+                "brick": "I_CHAT"
+            }
         )
         
     except Exception as e:
         logger.error("Failed to process chat message", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail=f"Failed to process chat message: {str(e)}"
         )
 
 
-async def process_chat_message(message: str, session_id: str, context: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
-    """Process chat message through orchestration system"""
+@router.get("/history/{user_id}")
+async def get_chat_history(
+    user_id: str,
+    session_id: Optional[str] = None,
+    limit: int = 50
+):
+    """
+    Get conversation history for a user from I MEMORY
     
-    # Import real orchestrator
-    from app.services.real_orchestrator import real_orchestrator
-    
-    # Analyze the message to determine intent
-    message_lower = message.lower()
-    
-    # Determine response based on message content - Improved logic
-    if any(word in message_lower for word in ['brick', 'development', 'build', 'create', 'develop', 'project', 'app', 'application', 'system', 'platform', 'orchestration', 'campaign', 'streaming', 'processing', 'batch', 'real-time', 'api', 'service', 'microservice']):
-        # BRICK development request
-        try:
-            results = await real_orchestrator.execute_brick_development(
-                goal=message,
-                context=context,
-                session_id=session_id
-            )
-            
-            response = f"I'll help you with BRICK development!\n\n"
-            response += f"**BRICK Development Plan:**\n"
-            response += f"• **BRICK Name:** {results['development_plan']['brick_name']}\n"
-            response += f"• **Priority:** {results['development_plan']['priority']}\n"
-            response += f"• **Estimated Hours:** {results['development_plan']['estimated_hours']}\n\n"
-            response += f"**Key Components:**\n"
-            for component in results['development_plan']['components'][:3]:
-                response += f"• {component}\n"
-            response += f"\n**Next Steps:**\n"
-            for step in results['next_steps'][:3]:
-                response += f"• {step}\n"
-            response += f"\nWould you like me to elaborate on any of these components or help you get started?"
-            
-            metadata = {
-                "orchestration_type": "brick_development",
-                "run_id": results.get("run_id"),
-                "confidence": results.get("confidence"),
-                "execution_time_ms": results.get("execution_time_ms")
-            }
-            
-        except Exception as e:
-            logger.error("BRICK development orchestration failed", error=str(e))
-            response = f"I understand you want to work on development. Let me help you with that!\n\n"
-            response += f"Could you provide more details about what you'd like to develop? "
-            response += f"For example, what functionality should it have or what problem should it solve?"
-            metadata = {"error": str(e), "fallback": True}
-    
-    elif any(word in message_lower for word in ['analyze', 'analysis', 'strategy', 'strategic', 'plan', 'planning', 'business', 'market', 'revenue', 'optimize', 'insight', 'recommend', 'decision', 'choice', 'compare', 'evaluate', 'assess']):
-        # Strategic analysis request
-        try:
-            results = await real_orchestrator.execute_strategic_analysis(
-                goal=message,
-                context=context,
-                session_id=session_id
-            )
-            
-            response = f"I'll analyze this strategically for you!\n\n"
-            response += f"**Strategic Analysis Results:**\n\n"
-            response += f"**Key Insights:**\n"
-            for insight in results['analysis']['key_insights'][:3]:
-                response += f"• {insight}\n"
-            response += f"\n**Recommendations:**\n"
-            for rec in results['analysis']['recommendations'][:3]:
-                response += f"• {rec}\n"
-            response += f"\n**Revenue Potential:**\n"
-            for opp, value in list(results['analysis']['revenue_potential'].items())[:3]:
-                response += f"• {opp}: ${value:,}\n"
-            response += f"\nWould you like me to dive deeper into any of these areas?"
-            
-            metadata = {
-                "orchestration_type": "strategic_analysis",
-                "run_id": results.get("run_id"),
-                "confidence": results.get("confidence"),
-                "execution_time_ms": results.get("execution_time_ms")
-            }
-            
-        except Exception as e:
-            logger.error("Strategic analysis orchestration failed", error=str(e))
-            response = f"I'd be happy to help with strategic analysis! "
-            response += f"Could you provide more context about what you'd like me to analyze? "
-            response += f"For example, a business goal, market opportunity, or strategic challenge?"
-            metadata = {"error": str(e), "fallback": True}
-    
-    elif any(word in message_lower for word in ['memory', 'remember', 'store', 'save']):
-        # Memory-related request
-        response = f"I can help you with memory management! "
-        response += f"You can:\n"
-        response += f"• Upload files (PDF, .md, .txt) in the Memory page\n"
-        response += f"• Store large text content for future reference\n"
-        response += f"• Organize information with categories and tags\n"
-        response += f"• Search through stored memories\n\n"
-        response += f"Would you like me to help you store some information or retrieve something from memory?"
-        
-        metadata = {
-            "orchestration_type": "memory_management",
-            "session_id": session_id
-        }
-    
-    elif any(word in message_lower for word in ['help', 'what can you do', 'capabilities']):
-        # Help request
-        response = f"I'm the I PROACTIVE BRICK Orchestration Intelligence! I can help you with:\n\n"
-        response += f"🤖 **AI Orchestration:**\n"
-        response += f"• Strategic analysis and planning\n"
-        response += f"• BRICK development and architecture\n"
-        response += f"• Revenue optimization strategies\n"
-        response += f"• Gap analysis and recommendations\n\n"
-        response += f"💾 **Memory Management:**\n"
-        response += f"• Store and organize project documents\n"
-        response += f"• Process large text content and files\n"
-        response += f"• Maintain context across sessions\n\n"
-        response += f"🔧 **System Integration:**\n"
-        response += f"• Coordinate multiple AI systems\n"
-        response += f"• Track development progress\n"
-        response += f"• Generate actionable insights\n\n"
-        response += f"What would you like to work on today?"
-        
-        metadata = {
-            "orchestration_type": "help",
-            "session_id": session_id
-        }
-    
-    else:
-        # General conversation - Try to route through orchestration anyway
-        try:
-            # For any other message, try strategic analysis first as it's most general
-            results = await real_orchestrator.execute_strategic_analysis(
-                goal=message,
-                context=context,
-                session_id=session_id
-            )
-            
-            response = f"I understand you're asking about: \"{message}\"\n\n"
-            response += f"Let me provide some strategic insights on this:\n\n"
-            response += f"**Key Insights:**\n"
-            for insight in results['analysis']['key_insights'][:2]:
-                response += f"• {insight}\n"
-            response += f"\n**Recommendations:**\n"
-            for rec in results['analysis']['recommendations'][:2]:
-                response += f"• {rec}\n"
-            response += f"\nWould you like me to dive deeper into this topic or help you with something specific?"
-            
-            metadata = {
-                "orchestration_type": "strategic_analysis",
-                "run_id": results.get("run_id"),
-                "confidence": results.get("confidence"),
-                "execution_time_ms": results.get("execution_time_ms"),
-                "auto_routed": True
-            }
-            
-        except Exception as e:
-            logger.error("Auto-routing orchestration failed", error=str(e))
-            # Fallback to generic response
-            response = f"I understand you're asking about: \"{message}\"\n\n"
-            response += f"Let me help you with that! I can assist with:\n"
-            response += f"• Strategic analysis and planning\n"
-            response += f"• BRICK development and architecture\n"
-            response += f"• Memory management and document processing\n"
-            response += f"• Revenue optimization strategies\n\n"
-            response += f"Could you provide more specific details about what you'd like me to help you with?"
-            
-            metadata = {
-                "orchestration_type": "general_conversation",
-                "session_id": session_id,
-                "message_intent": "clarification_needed",
-                "auto_routing_failed": str(e)
-            }
-    
-    return response, metadata
-
-
-@router.get("/sessions")
-async def get_chat_sessions():
-    """Get list of chat sessions"""
-    
+    Trinity BRICKS I CHAT Specification:
+    - Retrieves all conversation exchanges
+    - Optionally filtered by session_id
+    - Returns in chronological order
+    """
     try:
-        sessions = list(chat_sessions.values())
-        sessions.sort(key=lambda x: x['last_activity'], reverse=True)
+        from app.services.mem0_service import Mem0Service
+        
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        # Search for conversations
+        if session_id:
+            query = f"conversation session {session_id}"
+        else:
+            query = "conversation type:conversation"
+        
+        memories = await mem0_service.search(
+            query=query,
+            user_id=user_id,
+            limit=limit
+        )
+        
+        # Format conversations
+        conversations = []
+        for memory in memories:
+            content = memory.get("content", {})
+            if isinstance(content, dict) and content.get("type") == "conversation":
+                conversations.append({
+                    "session_id": content.get("session_id"),
+                    "user_message": content.get("user_message"),
+                    "assistant_response": content.get("assistant_response"),
+                    "timestamp": content.get("timestamp"),
+                    "memory_id": memory.get("memory_id")
+                })
         
         return {
+            "status": "success",
+            "user_id": user_id,
+            "session_id": session_id,
+            "conversations": conversations,
+            "count": len(conversations),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get chat history", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get chat history: {str(e)}"
+        )
+
+
+@router.get("/active-sessions")
+async def get_active_sessions():
+    """
+    List active chat sessions across all users
+    
+    Trinity BRICKS I CHAT - UBIC Endpoint
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            # Get unique session IDs from memories
+            from app.models.memory import Memory
+            
+            result = await db.execute(
+                select(
+                    func.json_extract(Memory.content, '$.session_id').label('session_id'),
+                    func.count().label('message_count'),
+                    func.max(Memory.created_at).label('last_activity')
+                ).where(
+                    func.json_extract(Memory.content, '$.type') == 'conversation'
+                ).group_by(
+                    func.json_extract(Memory.content, '$.session_id')
+                ).order_by(
+                    func.max(Memory.created_at).desc()
+                ).limit(50)
+            )
+            
+            sessions = []
+            for row in result:
+                if row.session_id:
+                    sessions.append({
+                        "session_id": row.session_id,
+                        "message_count": row.message_count,
+                        "last_activity": row.last_activity.isoformat() if row.last_activity else None
+                    })
+        
+        return {
+            "status": "success",
             "sessions": sessions,
             "total_sessions": len(sessions),
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
-        logger.error("Failed to get chat sessions", error=str(e))
+        logger.error("Failed to get active sessions", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail=f"Failed to get active sessions: {str(e)}"
         )
 
 
-@router.get("/sessions/{session_id}/messages")
-async def get_session_messages(session_id: str):
-    """Get messages for a specific session"""
+@router.post("/send-message")
+async def programmatic_send_message(
+    user_id: str,
+    message: str,
+    session_id: Optional[str] = None
+):
+    """
+    Programmatic message sending (Trinity BRICKS I CHAT - UBIC endpoint)
     
-    try:
-        if session_id not in chat_messages:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Session {session_id} not found"
-            )
-        
-        messages = chat_messages[session_id]
-        
-        return {
-            "session_id": session_id,
-            "messages": messages,
-            "message_count": len(messages),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed to get session messages", error=str(e), session_id=session_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-
-
-@router.delete("/sessions/{session_id}")
-async def clear_chat_session(session_id: str):
-    """Clear a chat session"""
-    
-    try:
-        if session_id in chat_sessions:
-            del chat_sessions[session_id]
-        if session_id in chat_messages:
-            del chat_messages[session_id]
-        
-        logger.info("Chat session cleared", session_id=session_id)
-        
-        return {
-            "session_id": session_id,
-            "status": "cleared",
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        logger.error("Failed to clear chat session", error=str(e), session_id=session_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    Allows other BRICKs to send messages via API
+    """
+    return await send_chat_message(ChatMessage(
+        message=message,
+        user_id=user_id,
+        session_id=session_id
+    ))
