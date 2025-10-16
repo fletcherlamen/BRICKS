@@ -134,6 +134,7 @@ async def search_memories(
     """
     try:
         from app.services.mem0_service import Mem0Service
+        from sqlalchemy import cast, String, or_, func, text
         
         mem0_service = Mem0Service()
         await mem0_service.initialize()
@@ -155,27 +156,42 @@ async def search_memories(
                            user_id=user_id,
                            raw_results=len(mem0_results))
                 
-                # Use Mem0.ai results directly - it has AI semantic search!
-                # Mem0 namespaces should isolate users
-                for mem0_mem in mem0_results:
-                    if len(results) >= limit:
-                        break
+                # CRITICAL: Verify user has memories in VPS database first
+                # Mem0 user isolation is unreliable, so enforce via database
+                async with AsyncSessionLocal() as db:
+                    db_result = await db.execute(
+                        select(func.count(Memory.id)).where(Memory.user_id == user_id)
+                    )
+                    user_memory_count = db_result.scalar() or 0
                     
-                    results.append({
-                        "memory_id": mem0_mem.get('memory_id'),
-                        "content": mem0_mem.get('content', {}),
-                        "relevance_score": mem0_mem.get('relevance_score', 0.9),
-                        "user_id": user_id,
-                        "metadata": mem0_mem.get('metadata', {}),
-                        "timestamp": mem0_mem.get('timestamp'),
-                        "source": "mem0_ai_semantic"
-                    })
-                
-                if results:
-                    search_method = "semantic_ai"
-                    logger.info("Mem0.ai REAL semantic search successful",
+                    logger.info("VPS database check",
                                user_id=user_id,
-                               results=len(results))
+                               memories_in_db=user_memory_count)
+                    
+                    # Only return Mem0 results if user has memories in VPS
+                    if user_memory_count > 0:
+                        for mem0_mem in mem0_results:
+                            if len(results) >= limit:
+                                break
+                            
+                            results.append({
+                                "memory_id": mem0_mem.get('memory_id'),
+                                "content": mem0_mem.get('content', {}),
+                                "relevance_score": mem0_mem.get('relevance_score', 0.9),
+                                "user_id": user_id,
+                                "metadata": mem0_mem.get('metadata', {}),
+                                "timestamp": mem0_mem.get('timestamp'),
+                                "source": "mem0_ai_semantic"
+                            })
+                        
+                        if results:
+                            search_method = "semantic_ai"
+                            logger.info("Mem0.ai REAL semantic search successful",
+                                       user_id=user_id,
+                                       results=len(results))
+                    else:
+                        logger.info("User has no memories in VPS database, skipping Mem0 results",
+                                   user_id=user_id)
                                
             except Exception as e:
                 logger.warning("Mem0.ai search failed, falling back to database", error=str(e))
@@ -183,8 +199,6 @@ async def search_memories(
         # Fallback to database search if Mem0 didn't return results
         if not results:
             async with AsyncSessionLocal() as db:
-                from sqlalchemy import cast, String, or_, func, text
-                
                 # Extract keywords from query for better matching
                 query_words = query.lower().replace("?", "").replace("'", "").split()
                 
