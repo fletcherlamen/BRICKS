@@ -67,13 +67,23 @@ async def add_memory(request: MemoryAddRequest):
                 user_id=request.user_id,
                 metadata=request.metadata
             )
+            
+            logger.info("Mem0 add result",
+                       user_id=request.user_id,
+                       result_keys=list(mem0_result.keys()) if mem0_result else [],
+                       memory_id_from_mem0=mem0_result.get("memory_id") if mem0_result else None)
+            
             # Use Mem0's memory ID if available and not None
             if not mem0_result.get("mock") and mem0_result.get("memory_id"):
                 memory_id = mem0_result.get("memory_id")
+                logger.info("Using Mem0 generated ID", memory_id=memory_id)
+            else:
+                logger.info("Using locally generated ID", memory_id=memory_id)
             
             logger.info("Memory stored in Mem0.ai", 
                        user_id=request.user_id,
-                       mem0_initialized=mem0_service.initialized)
+                       mem0_initialized=mem0_service.initialized,
+                       final_memory_id=memory_id)
         except Exception as e:
             logger.warning("Mem0 storage failed, continuing with database only", error=str(e))
         
@@ -146,60 +156,9 @@ async def search_memories(
         results = []
         search_method = "text_matching"
         
-        # Try semantic search with Mem0.ai first (REAL AI)
-        if mem0_service.initialized:
-            try:
-                # REAL semantic search with AI embeddings
-                mem0_results = await mem0_service.search(
-                    query=query,
-                    user_id=user_id,
-                    limit=limit
-                )
-                
-                # CRITICAL: Verify results against database for user isolation
-                # Mem0 may return results from other users due to namespace issues
-                async with AsyncSessionLocal() as db:
-                    memory_ids = [mem.get("memory_id") for mem in mem0_results if mem.get("memory_id") and not mem.get("mock")]
-                    
-                    if memory_ids:
-                        # Query database to verify ownership
-                        result = await db.execute(
-                            select(Memory)
-                            .where(Memory.memory_id.in_(memory_ids))
-                            .where(Memory.user_id == user_id)  # ENFORCE user isolation
-                        )
-                        verified_memories = result.scalars().all()
-                        
-                        # Only include verified memories
-                        verified_ids = {m.memory_id for m in verified_memories}
-                        
-                        for mem in mem0_results:
-                            if not mem.get("mock") and mem.get("memory_id") in verified_ids:
-                                # Find the database record for full data
-                                db_mem = next((m for m in verified_memories if m.memory_id == mem.get("memory_id")), None)
-                                if db_mem:
-                                    results.append({
-                                        "memory_id": db_mem.memory_id,
-                                        "content": db_mem.content,
-                                        "relevance_score": mem.get("relevance_score", 0),
-                                        "user_id": db_mem.user_id,  # Use actual user_id from database
-                                        "metadata": db_mem.memory_metadata or {},
-                                        "timestamp": db_mem.created_at.isoformat() if db_mem.created_at else None,
-                                        "source": "mem0_semantic_verified"
-                                    })
-                
-                if results:
-                    search_method = "semantic_ai"
-                    logger.info("Semantic search completed with Mem0.ai (verified)",
-                               user_id=user_id,
-                               query=query,
-                               results_count=len(results))
-                
-            except Exception as e:
-                logger.warning("Mem0 semantic search failed, falling back to database", error=str(e))
-        
-        # Fallback: Database text search if Mem0 not available or no results
-        if not results:
+        # Database search with enhanced text matching (RELIABLE user isolation)
+        # Note: Mem0.ai user isolation is unreliable, so we use database for guaranteed isolation
+        if True:  # Always use database for user isolation
             async with AsyncSessionLocal() as db:
                 from sqlalchemy import cast, String
                 result = await db.execute(
@@ -423,7 +382,7 @@ async def get_memory_stats(
                 recent_memories = result.scalar()
             
             stats["system_stats"] = {
-                "total_memories": total_memories,
+            "total_memories": total_memories,
                 "unique_users": unique_users,
                 "recent_memories_24h": recent_memories
             }

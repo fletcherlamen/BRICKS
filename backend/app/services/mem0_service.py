@@ -8,6 +8,8 @@ import structlog
 from datetime import datetime
 import hashlib
 import json
+import asyncio
+from functools import partial
 
 from app.core.config import settings
 from app.core.exceptions import Mem0Error
@@ -500,11 +502,16 @@ class Mem0Service:
                 "timestamp": datetime.now().isoformat()
             })
             
-            # New API format: messages parameter
-            result = self.client.add(
-                messages=[{"role": "user", "content": memory_text}],
-                user_id=user_namespace,
-                metadata=full_metadata
+            # New API format: messages parameter (run in thread pool)
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                partial(
+                    self.client.add,
+                    messages=[{"role": "user", "content": memory_text}],
+                    user_id=user_namespace,
+                    metadata=full_metadata
+                )
             )
             
             # Invalidate cache
@@ -512,11 +519,17 @@ class Mem0Service:
             if self.redis_client:
                 await self.redis_client.delete(cache_key)
             
+            logger.info("Mem0 API raw response", 
+                       user_id=user_id,
+                       result_type=type(result).__name__,
+                       result_keys=list(result.keys()) if isinstance(result, dict) else str(result)[:100],
+                       id_field=result.get("id") if isinstance(result, dict) else None)
+            
             logger.info("Memory added with user isolation", 
-                       user_id=user_id, memory_id=result.get("id"))
+                       user_id=user_id, memory_id=result.get("id") if isinstance(result, dict) else None)
             
             return {
-                "memory_id": result.get("id"),
+                "memory_id": result.get("id") if isinstance(result, dict) else None,
                 "user_id": user_id,
                 "content": content,
                 "timestamp": datetime.now().isoformat()
@@ -561,7 +574,17 @@ class Mem0Service:
             } for i in range(min(limit, 3))]
         
         try:
-            memories = self.client.search(query, user_id=user_namespace, limit=limit)
+            # Run synchronous Mem0 call in thread pool
+            loop = asyncio.get_event_loop()
+            memories = await loop.run_in_executor(
+                None,
+                partial(self.client.search, query, user_id=user_namespace, limit=limit)
+            )
+            
+            logger.info("Mem0 search raw results", 
+                       user_id=user_id,
+                       raw_count=len(memories) if memories else 0,
+                       user_namespace=user_namespace)
             
             results = []
             for memory in memories:
@@ -619,7 +642,12 @@ class Mem0Service:
             } for i in range(min(limit, 5))]
         
         try:
-            memories = self.client.get_all(user_id=user_namespace)
+            # Run synchronous Mem0 call in thread pool
+            loop = asyncio.get_event_loop()
+            memories = await loop.run_in_executor(
+                None,
+                partial(self.client.get_all, user_id=user_namespace)
+            )
             
             results = []
             for memory in memories[:limit]:
@@ -660,7 +688,12 @@ class Mem0Service:
             return True
         
         try:
-            self.client.delete(memory_id, user_id=user_namespace)
+            # Run synchronous Mem0 call in thread pool
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                partial(self.client.delete, memory_id, user_id=user_namespace)
+            )
             
             # Invalidate cache
             cache_key = await self._get_cache_key(user_id, "all_memories")
