@@ -30,6 +30,12 @@ const TrinityMemory = () => {
   const [contentValue, setContentValue] = useState('');
   const [contentPairs, setContentPairs] = useState([]);
   const [metadataCategory, setMetadataCategory] = useState('general');
+  
+  // Document upload
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadCategory, setUploadCategory] = useState('document');
+  const [uploading, setUploading] = useState(false);
 
   // Available categories
   const categories = [

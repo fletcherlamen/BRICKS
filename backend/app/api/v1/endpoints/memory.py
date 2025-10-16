@@ -6,11 +6,16 @@ All data comes from the memories table in the database.
 """
 
 from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, UploadFile, File
 from pydantic import BaseModel, Field
 import structlog
 from datetime import datetime
 import uuid
+import io
+import PyPDF2
+import docx
+import markdown
+from bs4 import BeautifulSoup
 
 from app.core.database import AsyncSessionLocal
 from app.models.memory import Memory
@@ -417,4 +422,236 @@ async def get_memory_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get memory stats: {str(e)}"
+        )
+
+
+# ============================================
+# Document Upload & Processing Functions
+# ============================================
+
+def extract_text_from_pdf(file_content: bytes) -> str:
+    """Extract text from PDF file"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        logger.error("Failed to extract PDF text", error=str(e))
+        raise HTTPException(status_code=400, detail=f"Failed to read PDF: {str(e)}")
+
+
+def extract_text_from_docx(file_content: bytes) -> str:
+    """Extract text from DOCX file"""
+    try:
+        doc = docx.Document(io.BytesIO(file_content))
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        return text.strip()
+    except Exception as e:
+        logger.error("Failed to extract DOCX text", error=str(e))
+        raise HTTPException(status_code=400, detail=f"Failed to read DOCX: {str(e)}")
+
+
+def extract_text_from_txt(file_content: bytes) -> str:
+    """Extract text from TXT file"""
+    try:
+        return file_content.decode('utf-8').strip()
+    except UnicodeDecodeError:
+        # Try with different encoding
+        try:
+            return file_content.decode('latin-1').strip()
+        except Exception as e:
+            logger.error("Failed to extract TXT text", error=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to read TXT: {str(e)}")
+
+
+def extract_text_from_md(file_content: bytes) -> str:
+    """Extract text from Markdown file"""
+    try:
+        md_text = file_content.decode('utf-8')
+        # Convert markdown to HTML, then extract text
+        html = markdown.markdown(md_text)
+        soup = BeautifulSoup(html, 'html.parser')
+        return soup.get_text().strip()
+    except Exception as e:
+        logger.error("Failed to extract MD text", error=str(e))
+        raise HTTPException(status_code=400, detail=f"Failed to read MD: {str(e)}")
+
+
+def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
+    """
+    Chunk text into smaller pieces for better semantic search
+    
+    Args:
+        text: The text to chunk
+        chunk_size: Size of each chunk in characters
+        overlap: Overlap between chunks
+    
+    Returns:
+        List of text chunks
+    """
+    if len(text) <= chunk_size:
+        return [text]
+    
+    chunks = []
+    start = 0
+    
+    while start < len(text):
+        end = start + chunk_size
+        
+        # Try to break at sentence boundary
+        if end < len(text):
+            # Look for sentence ending in the last 100 characters
+            sentence_end = text.rfind('.', end - 100, end)
+            if sentence_end > start:
+                end = sentence_end + 1
+        
+        chunks.append(text[start:end].strip())
+        start = end - overlap
+    
+    return chunks
+
+
+@router.post("/upload-document")
+async def upload_document(
+    file: UploadFile = File(...),
+    user_id: str = Query(..., description="User identifier for isolation"),
+    category: str = Query(default="document", description="Category for organization")
+):
+    """
+    Upload and process document (PDF, DOCX, TXT, MD) for semantic search
+    
+    Trinity BRICKS I MEMORY - Document RAG System:
+    - Extracts text from documents
+    - Chunks text for better search
+    - Stores chunks in I MEMORY with embeddings
+    - Enables chat with document content
+    
+    This is what makes I CHAT work like a custom GPT!
+    """
+    try:
+        # Validate file type
+        filename = file.filename.lower()
+        if not any(filename.endswith(ext) for ext in ['.pdf', '.docx', '.txt', '.md']):
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Supported: PDF, DOCX, TXT, MD"
+            )
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Extract text based on file type
+        if filename.endswith('.pdf'):
+            text = extract_text_from_pdf(file_content)
+        elif filename.endswith('.docx'):
+            text = extract_text_from_docx(file_content)
+        elif filename.endswith('.txt'):
+            text = extract_text_from_txt(file_content)
+        elif filename.endswith('.md'):
+            text = extract_text_from_md(file_content)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+        
+        if not text:
+            raise HTTPException(status_code=400, detail="No text content found in file")
+        
+        # Chunk the text
+        chunks = chunk_text(text, chunk_size=1000, overlap=200)
+        
+        logger.info("Document processed", 
+                   filename=file.filename,
+                   text_length=len(text),
+                   chunks=len(chunks))
+        
+        # Store each chunk in I MEMORY
+        from app.services.mem0_service import Mem0Service
+        mem0_service = Mem0Service()
+        await mem0_service.initialize()
+        
+        stored_chunks = []
+        
+        for i, chunk in enumerate(chunks):
+            chunk_id = f"doc_{uuid.uuid4().hex[:12]}_chunk{i}"
+            
+            # Create content for this chunk
+            chunk_content = {
+                "type": "document_chunk",
+                "filename": file.filename,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "text": chunk,
+                "category": category
+            }
+            
+            try:
+                # Store in Mem0 for semantic search
+                mem0_result = await mem0_service.add(
+                    content=chunk_content,
+                    user_id=user_id,
+                    metadata={
+                        "category": category,
+                        "document": file.filename,
+                        "chunk_index": i
+                    }
+                )
+                
+                memory_id = mem0_result.get("memory_id") if not mem0_result.get("mock") else chunk_id
+                if not memory_id:
+                    memory_id = chunk_id
+                
+                # Store in database
+                async with AsyncSessionLocal() as db:
+                    memory = Memory(
+                        memory_id=memory_id,
+                        user_id=user_id,
+                        content=chunk_content,
+                        memory_metadata={
+                            "category": category,
+                            "document": file.filename,
+                            "chunk_index": i,
+                            "total_chunks": len(chunks)
+                        },
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.add(memory)
+                    await db.commit()
+                
+                stored_chunks.append({
+                    "chunk_id": memory_id,
+                    "chunk_index": i,
+                    "length": len(chunk)
+                })
+                
+            except Exception as e:
+                logger.warning(f"Failed to store chunk {i}", error=str(e))
+                continue
+        
+        logger.info("Document uploaded and chunked",
+                   user_id=user_id,
+                   filename=file.filename,
+                   chunks_stored=len(stored_chunks))
+        
+        return {
+            "status": "success",
+            "data": {
+                "filename": file.filename,
+                "text_length": len(text),
+                "total_chunks": len(chunks),
+                "chunks_stored": len(stored_chunks),
+                "chunks": stored_chunks
+            },
+            "message": f"Document uploaded and split into {len(chunks)} searchable chunks. You can now chat about this document!",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to upload document", error=str(e), user_id=user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload document: {str(e)}"
         )
