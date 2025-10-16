@@ -120,7 +120,7 @@ const TrinityMemory = () => {
       const data = await response.json();
       
       if (data.status === 'success') {
-        let results = data.results || [];
+        let results = data.memories || [];  // API returns 'memories', not 'results'
         
         // Apply category filter to semantic results
         if (selectedCategory) {
