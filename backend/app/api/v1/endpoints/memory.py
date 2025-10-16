@@ -331,7 +331,7 @@ async def delete_memory(
             deleted = result.rowcount > 0
         
         if not deleted:
-        raise HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Memory {memory_id} not found or access denied"
             )
@@ -429,7 +429,7 @@ async def get_memory_stats(
                 recent_memories = result.scalar()
             
             stats["system_stats"] = {
-            "total_memories": total_memories,
+                "total_memories": total_memories,
                 "unique_users": unique_users,
                 "recent_memories_24h": recent_memories
             }
