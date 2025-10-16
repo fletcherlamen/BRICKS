@@ -156,22 +156,41 @@ async def search_memories(
                     limit=limit
                 )
                 
-                # Mem0 returns semantic results with relevance scores
-                for mem in mem0_results:
-                    if not mem.get("mock"):  # Only use real results
-                        results.append({
-                            "memory_id": mem.get("memory_id"),
-                            "content": mem.get("content"),
-                            "relevance_score": mem.get("relevance_score", 0),
-                            "user_id": user_id,
-                            "metadata": mem.get("metadata", {}),
-                            "timestamp": mem.get("timestamp"),
-                            "source": "mem0_semantic"
-                        })
+                # CRITICAL: Verify results against database for user isolation
+                # Mem0 may return results from other users due to namespace issues
+                async with AsyncSessionLocal() as db:
+                    memory_ids = [mem.get("memory_id") for mem in mem0_results if mem.get("memory_id") and not mem.get("mock")]
+                    
+                    if memory_ids:
+                        # Query database to verify ownership
+                        result = await db.execute(
+                            select(Memory)
+                            .where(Memory.memory_id.in_(memory_ids))
+                            .where(Memory.user_id == user_id)  # ENFORCE user isolation
+                        )
+                        verified_memories = result.scalars().all()
+                        
+                        # Only include verified memories
+                        verified_ids = {m.memory_id for m in verified_memories}
+                        
+                        for mem in mem0_results:
+                            if not mem.get("mock") and mem.get("memory_id") in verified_ids:
+                                # Find the database record for full data
+                                db_mem = next((m for m in verified_memories if m.memory_id == mem.get("memory_id")), None)
+                                if db_mem:
+                                    results.append({
+                                        "memory_id": db_mem.memory_id,
+                                        "content": db_mem.content,
+                                        "relevance_score": mem.get("relevance_score", 0),
+                                        "user_id": db_mem.user_id,  # Use actual user_id from database
+                                        "metadata": db_mem.memory_metadata or {},
+                                        "timestamp": db_mem.created_at.isoformat() if db_mem.created_at else None,
+                                        "source": "mem0_semantic_verified"
+                                    })
                 
                 if results:
                     search_method = "semantic_ai"
-                    logger.info("Semantic search completed with Mem0.ai",
+                    logger.info("Semantic search completed with Mem0.ai (verified)",
                                user_id=user_id,
                                query=query,
                                results_count=len(results))
@@ -212,7 +231,7 @@ async def search_memories(
             "status": "success",
             "query": query,
             "user_id": user_id,
-            "results": results,
+            "memories": results,  # Frontend expects 'memories' key
             "count": len(results),
             "search_method": search_method,
             "semantic_enabled": mem0_service.initialized,
