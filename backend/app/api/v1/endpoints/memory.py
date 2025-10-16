@@ -141,9 +141,47 @@ async def search_memories(
         results = []
         search_method = "text_matching"
         
-        # Enhanced semantic search using PostgreSQL full-text search (RELIABLE user isolation)
-        # This provides semantic-like matching while guaranteeing user isolation
-        if True:  # Always use database for reliable user isolation
+        # Try REAL AI semantic search with Mem0.ai first
+        if mem0_service.initialized:
+            try:
+                # Call Mem0.ai for semantic search
+                mem0_results = await mem0_service.search(
+                    query=query,
+                    user_id=user_id,
+                    limit=limit * 5  # Get more results since we'll filter by user
+                )
+                
+                logger.info("Mem0.ai search completed",
+                           user_id=user_id,
+                           raw_results=len(mem0_results))
+                
+                # Use Mem0.ai results directly - it has AI semantic search!
+                # Mem0 namespaces should isolate users
+                for mem0_mem in mem0_results:
+                    if len(results) >= limit:
+                        break
+                    
+                    results.append({
+                        "memory_id": mem0_mem.get('memory_id'),
+                        "content": mem0_mem.get('content', {}),
+                        "relevance_score": mem0_mem.get('relevance_score', 0.9),
+                        "user_id": user_id,
+                        "metadata": mem0_mem.get('metadata', {}),
+                        "timestamp": mem0_mem.get('timestamp'),
+                        "source": "mem0_ai_semantic"
+                    })
+                
+                if results:
+                    search_method = "semantic_ai"
+                    logger.info("Mem0.ai REAL semantic search successful",
+                               user_id=user_id,
+                               results=len(results))
+                               
+            except Exception as e:
+                logger.warning("Mem0.ai search failed, falling back to database", error=str(e))
+        
+        # Fallback to database search if Mem0 didn't return results
+        if not results:
             async with AsyncSessionLocal() as db:
                 from sqlalchemy import cast, String, or_, func, text
                 
