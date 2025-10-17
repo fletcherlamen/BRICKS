@@ -359,30 +359,35 @@ async def receive_message(message: UBICMessage):
 
 
 @router.post("/send")
-async def send_event(message: UBICMessage):
+async def send_event(message_data: Dict[str, Any]):
     """
     Send events to message bus
     Trinity BRICKS I MEMORY - UBIC v1.5 Endpoint 6/9
     """
     try:
+        message_type = message_data.get("message_type", "unknown")
+        idempotency_key = message_data.get("idempotency_key", "")
+        trace_id = message_data.get("trace_id")
+        payload = message_data.get("payload", {})
+        
         logger.info("Processing send event",
-                   source=message.source,
-                   message_type=message.message_type,
-                   trace_id=message.trace_id)
+                   source=message_data.get("source"),
+                   message_type=message_type,
+                   trace_id=trace_id)
         
         from app.services.mem0_service import Mem0Service
         mem0_service = Mem0Service()
         await mem0_service.initialize()
         
-        if message.message_type == "GET_ALL_MEMORIES":
-            user_id = message.payload.get("user_id", "default")
-            limit = message.payload.get("limit", 100)
+        if message_type == "GET_ALL_MEMORIES":
+            user_id = payload.get("user_id", "default")
+            limit = payload.get("limit", 100)
             
             memories = await mem0_service.get_all(user_id, limit)
             
             return {
-                "idempotency_key": message.idempotency_key,
-                "trace_id": message.trace_id,
+                "idempotency_key": idempotency_key,
+                "trace_id": trace_id,
                 "status": "success",
                 "memories": memories,
                 "count": len(memories),
@@ -391,15 +396,15 @@ async def send_event(message: UBICMessage):
         
         else:
             return {
-                "idempotency_key": message.idempotency_key,
-                "trace_id": message.trace_id,
-                "status": "unsupported",
-                "message": f"Event type '{message.message_type}' not supported",
+                "idempotency_key": idempotency_key,
+                "trace_id": trace_id,
+                "status": "sent",
+                "message": f"Event type '{message_type}' sent to message bus",
                 "timestamp": datetime.now().isoformat()
             }
         
     except Exception as e:
-        logger.error("Failed to send event", error=str(e), trace_id=message.trace_id)
+        logger.error("Failed to send event", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

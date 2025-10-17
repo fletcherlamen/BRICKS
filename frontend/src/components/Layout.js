@@ -10,6 +10,7 @@ import {
   WrenchScrewdriverIcon,
   LightBulbIcon,
   BanknotesIcon,
+  DocumentMagnifyingGlassIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -20,8 +21,9 @@ const navigation = [
   { name: 'Strategic Intelligence', href: '/strategic', icon: LightBulbIcon },
   { name: 'Revenue Integration', href: '/revenue', icon: BanknotesIcon },
   { name: 'BRICKS', href: '/bricks', icon: CubeIcon },
-  { name: 'Memory', href: '/memory', icon: CircleStackIcon },
-  { name: 'Chat', href: '/chat', icon: ChatBubbleLeftRightIcon },
+  { name: 'I MEMORY', href: '/memory', icon: CircleStackIcon },
+  { name: 'I CHAT', href: '/chat', icon: ChatBubbleLeftRightIcon },
+  { name: 'I ASSESS', href: '/assess', icon: DocumentMagnifyingGlassIcon },
   { name: 'Health', href: '/health', icon: WrenchScrewdriverIcon },
 ];
 

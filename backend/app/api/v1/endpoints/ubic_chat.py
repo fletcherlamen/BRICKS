@@ -244,7 +244,7 @@ async def receive_message(message: dict):
 
 
 @router.post("/send", summary="UBIC: Send events to message bus")
-async def send_event(event: dict):
+async def send_event(message_data: dict):
     """
     Sends an event/message to the UBIC message bus.
     
@@ -253,13 +253,13 @@ async def send_event(event: dict):
     - CONVERSATION_MESSAGE: New message in conversation
     - CONTEXT_RETRIEVED: Context retrieved from I MEMORY
     """
-    logger.info("Sending event via UBIC bus", event=event)
+    logger.info("Sending event via UBIC bus", message_type=message_data.get("event_type"))
     
     # In a real scenario, this would publish to a message queue (e.g., Redis Pub/Sub, Kafka)
     return {
         "status": "sent",
-        "event_id": event.get("idempotency_key"),
-        "event_type": event.get("event_type"),
+        "event_id": message_data.get("idempotency_key"),
+        "event_type": message_data.get("event_type"),
         "sent_at": datetime.now().isoformat(),
         "details": "Event sent from I CHAT to message bus"
     }

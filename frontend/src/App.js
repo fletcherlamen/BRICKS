@@ -7,6 +7,7 @@ import Orchestration from './pages/Orchestration';
 import Bricks from './pages/Bricks';
 import Memory from './pages/Memory';
 import Chat from './pages/Chat';
+import Assess from './pages/Assess';
 import UbicHealth from './pages/UbicHealth';
 import Strategic from './pages/Strategic';
 import Revenue from './pages/Revenue';
@@ -27,6 +28,7 @@ function App() {
           <Route path="/bricks" element={<Bricks />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/assess" element={<Assess />} />
           <Route path="/strategic" element={<Strategic />} />
           <Route path="/revenue" element={<Revenue />} />
           <Route path="/health" element={<UbicHealth />} />

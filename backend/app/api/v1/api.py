@@ -4,7 +4,7 @@ API v1 Router Configuration
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic_memory, ubic_chat
+from app.api.v1.endpoints import health, message_bus, metrics, memory, orchestration, chat, brick2_handshake, dashboard, database, strategic, revenue_integration, bricks, ubic_memory, ubic_chat, assess, ubic_assess
 
 api_router = APIRouter()
 
@@ -20,6 +20,20 @@ api_router.include_router(
     ubic_chat.router,
     prefix="/ubic/chat",
     tags=["trinity-i-chat-ubic"]
+)
+
+# Trinity BRICKS I ASSESS - UBIC v1.5 Compliance (9 endpoints)
+api_router.include_router(
+    ubic_assess.router,
+    prefix="/ubic/assess",
+    tags=["trinity-i-assess-ubic"]
+)
+
+# Trinity BRICKS I ASSESS - Code Auditing Endpoints
+api_router.include_router(
+    assess.router,
+    prefix="/audit",
+    tags=["trinity-i-assess"]
 )
 
 # UBIC v1.5 Required Endpoints Only
