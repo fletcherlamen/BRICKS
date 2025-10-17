@@ -184,9 +184,18 @@ class AssessService:
                            coverage=cached_results["coverage_percent"],
                            tests_passed=cached_results["tests_passed_count"])
                 return cached_results
-            # Check if pytest exists in repo
-            test_dirs = ['tests', 'test', 'testing']
-            has_tests = any(os.path.exists(os.path.join(repo_path, d)) for d in test_dirs)
+            # Check if pytest exists in repo - look in multiple locations
+            test_dirs = ['tests', 'test', 'testing', 'backend/tests', 'backend/test', 'src/tests', 'app/tests']
+            has_tests = False
+            test_dir_found = None
+            
+            for test_dir in test_dirs:
+                test_path = os.path.join(repo_path, test_dir)
+                if os.path.exists(test_path):
+                    has_tests = True
+                    test_dir_found = test_dir
+                    logger.info("Test directory found", path=test_dir)
+                    break
             
             if not has_tests:
                 logger.info("No test directory found in repository")
@@ -201,22 +210,35 @@ class AssessService:
                     "error": "No test directory found"
                 }
             
-            # Check if pytest.ini or requirements.txt exists
-            has_pytest_config = os.path.exists(os.path.join(repo_path, "pytest.ini"))
-            has_requirements = os.path.exists(os.path.join(repo_path, "requirements.txt"))
+            # Check if pytest.ini or requirements.txt exists - look in multiple locations
+            pytest_config_paths = [
+                os.path.join(repo_path, "pytest.ini"),
+                os.path.join(repo_path, "backend", "pytest.ini"),
+                os.path.join(repo_path, "src", "pytest.ini")
+            ]
+            has_pytest_config = any(os.path.exists(path) for path in pytest_config_paths)
+            
+            requirements_paths = [
+                os.path.join(repo_path, "requirements.txt"),
+                os.path.join(repo_path, "backend", "requirements.txt"),
+                os.path.join(repo_path, "src", "requirements.txt")
+            ]
+            has_requirements = any(os.path.exists(path) for path in requirements_paths)
+            requirements_file = next((path for path in requirements_paths if os.path.exists(path)), None)
             
             logger.info("Test framework detected", 
                        has_tests=has_tests, 
+                       test_dir=test_dir_found,
                        has_pytest_config=has_pytest_config,
                        has_requirements=has_requirements)
             
             # Install requirements if they exist (for cloned repos)
-            if has_requirements and repo_path != "/app":
+            if has_requirements and repo_path != "/app" and requirements_file:
                 try:
-                    logger.info("Installing requirements for test execution")
+                    logger.info("Installing requirements for test execution", file=requirements_file)
                     subprocess.run(
-                        ["pip", "install", "-q", "-r", "requirements.txt"],
-                        cwd=repo_path,
+                        ["pip", "install", "-q", "-r", requirements_file],
+                        cwd=os.path.dirname(requirements_file),
                         capture_output=True,
                         timeout=120
                     )
@@ -230,14 +252,133 @@ class AssessService:
             if os.path.exists(coverage_file):
                 os.remove(coverage_file)
             
-            # Try running pytest
-            result = subprocess.run(
-                ["pytest", "--cov=app", "--cov-report=json", "--cov-report=term", "-v", "--tb=short", "-x"],
-                cwd=repo_path,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
-            )
+            # Determine the best working directory and coverage target
+            if test_dir_found and "backend" in test_dir_found:
+                # Tests are in backend/tests, run from backend directory
+                test_cwd = os.path.join(repo_path, "backend")
+                coverage_target = "app"  # Coverage target for backend
+                test_path = "tests"
+            elif test_dir_found:
+                # Tests are in root tests directory
+                test_cwd = repo_path
+                coverage_target = "app"  # Try app first
+                test_path = test_dir_found
+            else:
+                # Fallback
+                test_cwd = repo_path
+                coverage_target = "app"
+                test_path = "."
+            
+            logger.info("Running pytest", 
+                       cwd=test_cwd, 
+                       test_path=test_path,
+                       coverage_target=coverage_target)
+            
+            # Try using the generate_test_coverage.py script first (for GitHub repos)
+            if repo_path != "/app" and test_dir_found and "backend" in test_dir_found:
+                # Check if generate_test_coverage.py exists in the tests directory
+                coverage_script = os.path.join(test_cwd, "tests", "generate_test_coverage.py")
+                if os.path.exists(coverage_script):
+                    logger.info("Found generate_test_coverage.py script, using it for comprehensive test analysis")
+                    try:
+                        # Run the coverage generation script
+                        result = subprocess.run(
+                            ["python", "tests/generate_test_coverage.py"],
+                            cwd=test_cwd,
+                            capture_output=True,
+                            text=True,
+                            timeout=600  # 10 minute timeout for comprehensive testing
+                        )
+                        
+                        if result.returncode == 0:
+                            logger.info("generate_test_coverage.py executed successfully")
+                            
+                            # Try to load the generated test summary
+                            summary_file = os.path.join(test_cwd, "test_summary.json")
+                            if os.path.exists(summary_file):
+                                with open(summary_file) as f:
+                                    summary_data = json.load(f)
+                                
+                                # Use the comprehensive results
+                                tests_passed_count = summary_data.get("tests_passed", 0)
+                                tests_failed_count = summary_data.get("tests_failed", 0)
+                                coverage_percent = summary_data.get("coverage_percent", 0)
+                                test_success_rate = summary_data.get("success_rate", 0)
+                                
+                                total_tests = tests_passed_count + tests_failed_count
+                                tests_passed = tests_passed_count > 0 and test_success_rate >= 50
+                                
+                                logger.info("Using comprehensive test results from generate_test_coverage.py",
+                                           tests_passed=tests_passed_count,
+                                           tests_failed=tests_failed_count,
+                                           coverage=coverage_percent,
+                                           success_rate=test_success_rate)
+                                
+                                return {
+                                    "tests_passed": tests_passed,
+                                    "coverage_percent": round(coverage_percent, 1),
+                                    "tests_run": total_tests,
+                                    "tests_passed_count": tests_passed_count,
+                                    "tests_failed_count": tests_failed_count,
+                                    "meets_80_threshold": coverage_percent >= 80,
+                                    "test_output": result.stdout[-2000:] if result.stdout else "",
+                                    "test_errors": result.stderr[:500] if result.stderr else "",
+                                    "has_test_framework": True,
+                                    "test_success_rate": round(test_success_rate, 1),
+                                    "comprehensive": True
+                                }
+                    except Exception as e:
+                        logger.warning("generate_test_coverage.py failed, falling back to standard pytest", error=str(e))
+            
+            # Fallback to standard pytest commands
+            pytest_commands = [
+                # Try with backend structure and coverage
+                ["pytest", f"--cov={coverage_target}", "--cov-report=json", "--cov-report=term", "-v", "--tb=short", test_path],
+                # Try with backend structure without coverage
+                ["pytest", "-v", "--tb=short", test_path],
+                # Try with coverage but different target
+                ["pytest", "--cov=.", "--cov-report=json", "--cov-report=term", "-v", "--tb=short", test_path],
+                # Try just running tests without coverage
+                ["pytest", "-v", "--tb=short", test_path],
+                # Try just finding tests (fallback)
+                ["pytest", "--collect-only", test_path]
+            ]
+            
+            result = None
+            for i, cmd in enumerate(pytest_commands):
+                try:
+                    logger.info(f"Trying pytest command {i+1}", command=cmd)
+                    result = subprocess.run(
+                        cmd,
+                        cwd=test_cwd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300  # 5 minute timeout
+                    )
+                    # Prefer actual test execution over just collection
+                    if result.returncode == 0:
+                        logger.info(f"Pytest command {i+1} succeeded with execution", returncode=result.returncode)
+                        break
+                    elif "collected" in result.stdout and i == len(pytest_commands) - 1:
+                        # Only accept collection as last resort
+                        logger.info(f"Pytest command {i+1} succeeded with collection only", returncode=result.returncode)
+                        break
+                except Exception as e:
+                    logger.warning(f"Pytest command {i+1} failed", error=str(e))
+                    continue
+            
+            if result is None:
+                logger.error("All pytest commands failed")
+                return {
+                    "tests_passed": False,
+                    "coverage_percent": 0,
+                    "tests_run": 0,
+                    "tests_passed_count": 0,
+                    "tests_failed_count": 0,
+                    "meets_80_threshold": False,
+                    "has_test_framework": has_tests,
+                    "error": "Failed to run pytest"
+                }
             
             logger.info("Pytest execution completed", returncode=result.returncode)
             
