@@ -481,7 +481,7 @@ async def get_memory_stats(
                 recent_memories = result.scalar()
             
             stats["system_stats"] = {
-                "total_memories": total_memories,
+            "total_memories": total_memories,
                 "unique_users": unique_users,
                 "recent_memories_24h": recent_memories
             }
