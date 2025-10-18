@@ -16,6 +16,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.config import settings
 import anthropic
 import json
+import httpx
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -193,6 +194,58 @@ def build_claude_messages(
     return messages
 
 
+async def trigger_assess_audit(user_id: str, repository: str = "https://github.com/fletcherlamen/BRICKS") -> Dict[str, Any]:
+    """Trigger I ASSESS audit from I CHAT"""
+    try:
+        async with httpx.AsyncClient() as client:
+            # Start audit
+            response = await client.post(
+                "http://localhost:8000/api/v1/audit/start",
+                json={
+                    "repository": repository,
+                    "user_id": user_id,
+                    "criteria": ["UBIC_compliance", "test_coverage", "code_quality"]
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                audit_data = response.json()
+                audit_id = audit_data.get("audit_id")
+                
+                logger.info("I ASSESS audit triggered from I CHAT",
+                           audit_id=audit_id,
+                           user_id=user_id)
+                
+                # Wait for completion (with timeout)
+                import asyncio
+                for _ in range(60):  # Wait up to 60 seconds
+                    await asyncio.sleep(1)
+                    
+                    # Check status
+                    status_response = await client.get(
+                        f"http://localhost:8000/api/v1/audit/{audit_id}",
+                        timeout=10.0
+                    )
+                    
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        audit_status = status_data.get("audit", {}).get("status")
+                        
+                        if audit_status == "completed":
+                            return status_data.get("audit", {})
+                        elif audit_status == "failed":
+                            return {"error": "Audit failed", "details": status_data.get("audit", {})}
+                
+                return {"error": "Audit timeout", "audit_id": audit_id}
+            else:
+                return {"error": f"Failed to start audit: {response.status_code}"}
+                
+    except Exception as e:
+        logger.error("Failed to trigger I ASSESS audit", error=str(e))
+        return {"error": f"Failed to trigger audit: {str(e)}"}
+
+
 @router.post("/message", response_model=ChatResponse)
 async def send_chat_message(message_request: ChatMessage):
     """
@@ -229,20 +282,51 @@ async def send_chat_message(message_request: ChatMessage):
             relevant_context
         )
         
+        # Check if user is requesting an audit
+        audit_keywords = ["audit", "assess", "code quality", "run audit", "check code", "analyze code", "fresh audit"]
+        is_audit_request = any(keyword in message_request.message.lower() for keyword in audit_keywords)
+        
         # Generate response with Claude
         if claude_client:
             try:
+                # If it's an audit request, trigger I ASSESS first
+                if is_audit_request:
+                    logger.info("Audit request detected, triggering I ASSESS", user_id=user_id)
+                    audit_results = await trigger_assess_audit(user_id)
+                    
+                    if "error" not in audit_results:
+                        # Add audit results to context
+                        audit_context = f"""
+AUDIT RESULTS (just completed):
+- UBIC Compliance: {audit_results.get('ubic_compliance', {}).get('compliance_percent', 0)}%
+- Test Coverage: {audit_results.get('test_results', {}).get('coverage_percent', 0)}%
+- Tests Passing: {audit_results.get('test_results', {}).get('tests_passed_count', 0)}/{audit_results.get('test_results', {}).get('tests_run', 0)}
+- AI Quality Score: {audit_results.get('ai_review', {}).get('quality_score', 0)}/10
+- Production Ready: {audit_results.get('ai_review', {}).get('production_ready', False)}
+- Payment Recommendation: {audit_results.get('payment_recommendation', {}).get('recommendation', 'Unknown')}
+- Total Score: {audit_results.get('payment_recommendation', {}).get('total_score', 0)}/100
+
+Please provide a comprehensive analysis of these audit results.
+"""
+                        claude_messages.append({"role": "user", "content": audit_context})
+                    else:
+                        claude_messages.append({
+                            "role": "user", 
+                            "content": f"Note: I tried to run a fresh audit but encountered an issue: {audit_results.get('error', 'Unknown error')}. Please provide analysis based on available memory context."
+                        })
+                
                 response = claude_client.messages.create(
                     model="claude-sonnet-4-20250514",
                     max_tokens=2000,
-                    system="You are I CHAT, a helpful AI assistant that is part of the Trinity BRICKS system. You have access to persistent memory and can help users with various tasks. Be conversational, helpful, and remember context from previous conversations.",
+                    system="You are I CHAT, a helpful AI assistant that is part of the Trinity BRICKS system. You have access to persistent memory and can help users with various tasks. Be conversational, helpful, and remember context from previous conversations. When providing audit analysis, be detailed and specific about the metrics and recommendations.",
                     messages=claude_messages
                 )
                 
                 assistant_response = response.content[0].text
                 
                 logger.info("Claude API response received",
-                           response_length=len(assistant_response))
+                           response_length=len(assistant_response),
+                           audit_triggered=is_audit_request)
                 
             except Exception as e:
                 logger.error("Claude API call failed", error=str(e))

@@ -514,6 +514,9 @@ class Mem0Service:
                 )
             )
             
+            # Also store in VPS database for Trinity BRICKS integration
+            await self._store_in_database(content, user_id, full_metadata, result.get("id"))
+            
             # Invalidate cache
             cache_key = await self._get_cache_key(user_id, "all_memories")
             if self.redis_client:
@@ -537,6 +540,35 @@ class Mem0Service:
         except Exception as e:
             logger.error("Failed to add memory", error=str(e), user_id=user_id)
             raise Mem0Error(f"Failed to add memory: {str(e)}")
+    
+    async def _store_in_database(
+        self,
+        content: Dict[str, Any],
+        user_id: str,
+        metadata: Dict[str, Any],
+        mem0_id: str = None
+    ) -> None:
+        """Store memory in VPS database for Trinity BRICKS integration"""
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.models.memory import Memory
+            
+            async with AsyncSessionLocal() as db:
+                memory = Memory(
+                    memory_id=mem0_id or f"db_{datetime.now().timestamp()}",
+                    user_id=user_id,
+                    content=content,
+                    metadata=metadata
+                )
+                db.add(memory)
+                await db.commit()
+                
+                logger.info("Memory stored in VPS database",
+                           memory_id=memory.memory_id,
+                           user_id=user_id)
+                
+        except Exception as e:
+            logger.warning("Failed to store memory in database", error=str(e))
     
     async def search(
         self,
