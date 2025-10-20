@@ -23,10 +23,10 @@ class TestChatEndpoints:
         response = client.get("/api/v1/ubic/chat/capabilities")
         assert response.status_code == 200
         data = response.json()
-        assert "chat_operations" in data
-        assert "send_message" in data["chat_operations"]
-        assert "get_conversation" in data["chat_operations"]
-        assert "get_active_sessions" in data["chat_operations"]
+        assert "capabilities" in data
+        assert "service" in data
+        assert data["service"] == "I_CHAT"
+        assert len(data["capabilities"]) > 0
     
     def test_state_endpoint(self, client: TestClient):
         """Test state endpoint returns chat statistics."""

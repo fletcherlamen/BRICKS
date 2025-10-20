@@ -10,7 +10,8 @@ import {
   CurrencyDollarIcon,
   DocumentMagnifyingGlassIcon,
   ArrowPathIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 function Assess() {
@@ -154,10 +155,10 @@ function Assess() {
 
   const getRecommendationBadge = (recommendation) => {
     const badges = {
-      APPROVE_FULL_PAYMENT: { color: 'bg-green-500 text-white', text: '✅ Approve Full Payment' },
-      APPROVE_PARTIAL_PAYMENT: { color: 'bg-yellow-500 text-white', text: '⚠️ Approve Partial' },
-      REQUEST_FIXES_FIRST: { color: 'bg-orange-500 text-white', text: '🔧 Request Fixes' },
-      REJECT_DO_NOT_PAY: { color: 'bg-red-500 text-white', text: '❌ Do Not Pay' }
+      APPROVE_FULL_PAYMENT: { color: 'bg-green-500 text-white', text: 'Approve Full Payment' },
+      APPROVE_PARTIAL_PAYMENT: { color: 'bg-yellow-500 text-white', text: 'Approve Partial' },
+      REQUEST_FIXES_FIRST: { color: 'bg-orange-500 text-white', text: 'Request Fixes' },
+      REJECT_DO_NOT_PAY: { color: 'bg-red-500 text-white', text: 'Do Not Pay' }
     };
     
     const badge = badges[recommendation] || { color: 'bg-gray-500 text-white', text: recommendation };
@@ -418,19 +419,21 @@ function Assess() {
                         </div>
                         <div>
                           <p className="text-3xl font-bold">
-                            {selectedAudit.test_results.tests_passed ? '✅' : '❌'}
+                            {selectedAudit.test_results.tests_passed ? 'PASS' : 'FAIL'}
                           </p>
                           <p className="text-sm text-gray-600">Tests Status</p>
                         </div>
                       </div>
 
                       {selectedAudit.test_results.meets_80_threshold ? (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700">
-                          ✅ Meets 80% coverage threshold
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 flex items-center">
+                          <CheckCircleIcon className="h-5 w-5 mr-2" />
+                          Meets 80% coverage threshold
                         </div>
                       ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-yellow-700">
-                          ⚠️ Below 80% coverage threshold (needs improvement)
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-yellow-700 flex items-center">
+                          <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
+                          Below 80% coverage threshold (needs improvement)
                         </div>
                       )}
                     </div>

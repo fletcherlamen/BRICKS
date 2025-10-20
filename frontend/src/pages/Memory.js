@@ -10,7 +10,8 @@ import {
   FunnelIcon,
   XMarkIcon,
   TagIcon,
-  FolderIcon
+  FolderIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 const TrinityMemory = () => {
@@ -471,7 +472,7 @@ const TrinityMemory = () => {
                       ? 'bg-green-100 text-green-700' 
                       : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {searchMethod === 'semantic_ai' ? '🤖 AI' : '📝 Text'}
+                    {searchMethod === 'semantic_ai' ? 'AI' : 'Text'}
                   </span>
                 </div>
               )}
@@ -572,8 +573,9 @@ const TrinityMemory = () => {
                   {hasActiveFilters ? `Filtered Results (${memories.length})` : `All Memories (${memories.length})`}
                 </h3>
                 {searchMethod === 'semantic_ai' && searchQuery && (
-                  <p className="text-xs text-green-600 mt-1">
-                    🤖 AI Semantic Search - Results ranked by relevance
+                  <p className="text-xs text-green-600 mt-1 flex items-center">
+                    <SparklesIcon className="h-3 w-3 mr-1" />
+                    AI Semantic Search - Results ranked by relevance
                   </p>
                 )}
               </div>
@@ -601,7 +603,8 @@ const TrinityMemory = () => {
                       </span>
                       {memory.relevance_score && (
                         <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-700 font-semibold">
-                          🎯 {(memory.relevance_score * 100).toFixed(1)}% relevant
+                          <SparklesIcon className="h-3 w-3 mr-1" />
+                          {(memory.relevance_score * 100).toFixed(1)}% relevant
                         </span>
                       )}
                       {memory.metadata?.category && (
@@ -682,9 +685,12 @@ const TrinityMemory = () => {
         transition={{ delay: 0.4 }}
         className="card bg-gradient-to-r from-blue-50 to-purple-50"
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          🧠 Trinity BRICKS I MEMORY
-        </h3>
+        <div className="flex items-center mb-2">
+          <CircleStackIcon className="h-6 w-6 text-purple-600 mr-2" />
+          <h3 className="text-lg font-semibold text-gray-900">
+            Trinity BRICKS I MEMORY
+          </h3>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <p className="font-semibold text-gray-700">Multi-User Isolation</p>

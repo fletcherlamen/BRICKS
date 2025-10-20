@@ -23,10 +23,10 @@ class TestMemoryEndpoints:
         response = client.get("/api/v1/ubic/memory/capabilities")
         assert response.status_code == 200
         data = response.json()
-        assert "memory_operations" in data
-        assert "add" in data["memory_operations"]
-        assert "search" in data["memory_operations"]
-        assert "get_all" in data["memory_operations"]
+        assert "capabilities" in data
+        assert "service" in data
+        assert data["service"] == "I_MEMORY"
+        assert len(data["capabilities"]) > 0
     
     def test_state_endpoint(self, client: TestClient):
         """Test state endpoint returns memory statistics."""

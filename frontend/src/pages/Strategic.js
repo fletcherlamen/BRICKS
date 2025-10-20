@@ -392,7 +392,7 @@ const Strategic = () => {
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                               index === 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
                             }`}>
-                              {index === 0 ? '🏆 TOP OPPORTUNITY' : `#${index + 1}`}
+                              {index === 0 ? 'TOP OPPORTUNITY' : `#${index + 1}`}
                             </span>
                             <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                               {opp.type?.replace('_', ' ')}
@@ -594,7 +594,7 @@ const Strategic = () => {
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">Dependencies</p>
-                        <p className="text-xl font-bold text-green-600">{priorityQueue.next_brick_recommendation.dependencies_met ? '✓ Met' : '✗ Pending'}</p>
+                        <p className="text-xl font-bold text-green-600">{priorityQueue.next_brick_recommendation.dependencies_met ? 'Met' : 'Pending'}</p>
                       </div>
                     </div>
                   </div>

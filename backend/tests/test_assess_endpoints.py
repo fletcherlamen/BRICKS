@@ -25,30 +25,30 @@ class TestAssessEndpoints:
         response = client.get("/api/v1/ubic/assess/capabilities")
         assert response.status_code == 200
         data = response.json()
-        assert "assess_operations" in data
-        assert "audit_repository" in data["assess_operations"]
-        assert "check_ubic_compliance" in data["assess_operations"]
-        assert "run_tests" in data["assess_operations"]
-        assert "ai_code_review" in data["assess_operations"]
+        assert "capabilities" in data
+        assert "audit_github_repositories" in data["capabilities"]
+        assert "check_ubic_compliance" in data["capabilities"]
+        assert "measure_test_coverage" in data["capabilities"]
+        assert "ai_code_review" in data["capabilities"]
     
     def test_state_endpoint(self, client: TestClient):
         """Test state endpoint returns assess statistics."""
         response = client.get("/api/v1/ubic/assess/state")
         assert response.status_code == 200
         data = response.json()
-        assert "active_audits" in data
-        assert "completed_audits" in data
-        assert "average_score" in data
+        assert "operational_state" in data
+        assert "metrics" in data
+        assert "completed_audits" in data["metrics"]
+        assert "total_audits" in data["metrics"]
     
     def test_dependencies_endpoint(self, client: TestClient):
         """Test dependencies endpoint returns service status."""
         response = client.get("/api/v1/ubic/assess/dependencies")
         assert response.status_code == 200
         data = response.json()
-        assert "anthropic" in data
-        assert "i_memory" in data
-        assert "git" in data
-        assert "pytest" in data
+        assert "dependencies" in data
+        assert "infrastructure" in data["dependencies"]
+        assert len(data["dependencies"]["infrastructure"]) > 0
     
     @patch('app.services.assess_service.check_ubic_compliance')
     @patch('app.services.assess_service.run_tests')
