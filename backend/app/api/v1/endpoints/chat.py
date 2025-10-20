@@ -379,7 +379,7 @@ Would you like me to demonstrate any specific capability? I can:
                     claude_messages.append({"role": "user", "content": capability_demo})
                 
                 # If it's an audit request, trigger I ASSESS first
-                elif is_audit_request:
+                if is_audit_request:
                     logger.info("Audit request detected, triggering I ASSESS", user_id=user_id)
                     audit_results = await trigger_assess_audit(user_id)
                     
